@@ -24,5 +24,4 @@ public class MyPointerAnalysis {
 			args[1]				
 		});
 	}
-
 }
