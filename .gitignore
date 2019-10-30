@@ -1,1 +1,6 @@
 *.class
+.DS_Store
+/mypointeranalysis/target/
+/mypointeranalysis/.settings
+/mypointeranalysis/.classpath
+/mypointeranalysis/.project
