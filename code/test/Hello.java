@@ -5,6 +5,15 @@ import benchmark.objects.A;
 
 public class Hello {
 
+  static int x = 0;
+
+  public static void main2(){
+    if(x != 0)
+    {
+      main(null);
+    }
+  }
+
   public static void main(String[] args) {
     BenchmarkN.alloc(1); 
     A a = new A();
@@ -15,5 +24,7 @@ public class Hello {
     if (args.length > 1) a = b;
     BenchmarkN.test(1, a); 
     BenchmarkN.test(2, c); 
+
+    main2();
   }
 }
