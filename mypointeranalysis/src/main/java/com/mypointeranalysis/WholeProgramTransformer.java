@@ -1,11 +1,13 @@
 package com.mypointeranalysis;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import soot.Kind;
 import soot.Local;
 import soot.MethodOrMethodContext;
 import soot.Scene;
@@ -25,23 +27,47 @@ import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.Stmt;
 
+import java.util.IdentityHashMap;
 
 public class WholeProgramTransformer extends SceneTransformer {
 	
 	@Override
 	protected void internalTransform(String phaseName, Map<String, String> options) {
+		IdentityHashMap<Stmt, SootMethod> call_relation;
+
+		IdentityHashMap<Kind, Integer> kinds = new IdentityHashMap<>();
+
 		CallGraph cg = Scene.v().getCallGraph();
 		QueueReader<Edge> edges = cg.listener();
 		while(edges.hasNext())
 		{
 			Edge e = edges.next();
-			e.kind();
-			Stmt stmt = e.srcStmt();
-			if(stmt == null)
+			Kind k = e.kind();
+			if(kinds.containsKey(k))
+			{
+				kinds.put(k, kinds.get(k) + 1);
+			}
+			else
+			{
+				kinds.put(k, 1);
+			}
+
+			if(k.name().equals("PRIVILEGED"))
 			{
 				System.out.println(e);
 			}
 		}
+
+		for(Map.Entry<Kind, Integer> x: kinds.entrySet())
+		{
+			System.out.println(x.getKey().toString() + " " + x.getValue().toString());
+		}
+
+		// List<SootMethod> entrypoints = Scene.v().getEntryPoints();
+		// for(SootMethod sm: entrypoints)
+		// {
+		// 	System.out.println(sm);
+		// }
 
 		// Iterator<MethodOrMethodContext> srcs = cg.sourceMethods();
 		// while(srcs.hasNext())
@@ -53,7 +79,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 		QueueReader<MethodOrMethodContext> qr = reachableMethods.listener();		
 		while (qr.hasNext()) {
 			SootMethod sm = qr.next().method();
-			if(cg.isEntryMethod(sm))
+			// if(cg.isEntryMethod(sm))
+			// {
+			// 	System.out.println(sm);
+			// }
+			if(!sm.isNative())
 			{
 				System.out.println(sm);
 			}
