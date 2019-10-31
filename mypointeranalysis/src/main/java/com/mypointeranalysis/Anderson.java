@@ -30,9 +30,11 @@ public class Anderson {
 	private List<NewConstraint> newConstraintList = new ArrayList<NewConstraint>();
 	Map<Local, TreeSet<Integer>> pts = new HashMap<Local, TreeSet<Integer>>();
 	void addAssignConstraint(Local from, Local to) {
+		System.out.println(to + " = " + from);
 		assignConstraintList.add(new AssignConstraint(from, to));
 	}
 	void addNewConstraint(int alloc, Local to) {
+		System.out.println(to + " = " + alloc);
 		newConstraintList.add(new NewConstraint(alloc, to));		
 	}
 	void run() {
