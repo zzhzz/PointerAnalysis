@@ -36,6 +36,26 @@ public class WholeProgramTransformer extends SceneTransformer {
 	private Map<SootMethod, Integer> call_times = new HashMap<>();
 	private Anderson anderson = new Anderson();
 
+	private void add_assign(Local left, Local right, String left_name, String right_name) {
+		Local left_temp, right_temp;
+		Type left_type = left.getType();
+		Chain<SootField> fields = Scene.v().getSootClass(left_type.toQuotedString()).getFields();
+		for(SootField field : fields){
+		    left_temp = (Local) left.clone();
+		    right_temp = (Local) right.clone();
+			change_name(left_temp, field.toString(), left_name);
+			change_name(right_temp, field.toString(), right_name);
+			anderson.addAssignConstraint(right_temp, left_temp);
+		}
+		left_temp = (Local) left.clone();
+		right_temp = (Local) right.clone();
+		change_name(left_temp, left_name);
+		change_name(right_temp, right_name);
+		anderson.addAssignConstraint(right_temp, left_temp);
+	}
+
+
+
 	private void dfs_ongraph(SootMethod method){
 		if(!isInProject(method.getDeclaringClass().getName())){
 			return;
@@ -55,80 +75,28 @@ public class WholeProgramTransformer extends SceneTransformer {
 						queries.put(id, v);
 					} else if(callerUnits.containsKey(u)) {
 						SootMethod callee = callerUnits.get(u).method();
+						List<Local> local_list = callee.getActiveBody().getParameterLocals();
+						List<Value> args = ie.getArgs();
+						int len = args.size();
 						Integer times = call_times.get(callee);
 						String callee_name = callee.toString() + " " + (times + 1);
 						call_times.put(callee, times+1);
 						if(ie instanceof InstanceInvokeExpr) {
-							Local this_local = (Local) callee.getActiveBody().getThisLocal().clone();
-							Local base_local = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
-							change_name(this_local, callee_name);
-							change_name(base_local, method_name);
-							Type left_type = this_local.getType();
-							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
-							Chain<SootField>  fields = left_claz.getFields();
-							for(SootField field : fields){
-								Local left_temp = (Local) callee.getActiveBody().getThisLocal().clone();
-								Local right_temp = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
-								change_name(left_temp, field.toString(), callee_name);
-								change_name(right_temp, field.toString(), method_name);
-								anderson.addAssignConstraint(right_temp, left_temp);
-							}
-							anderson.addAssignConstraint(base_local, this_local);
+							add_assign(callee.getActiveBody().getThisLocal(),
+									(Local) ((InstanceInvokeExpr) ie).getBase(),
+									callee_name, method_name);
 						}
-						List<Local> arg_list = callee.getActiveBody().getParameterLocals();
-						List<Value> args = ie.getArgs();
-					    int len = args.size();
 					    for(int i = 0; i < len; i++){
-					    	Local v_arg = (Local) args.get(i).clone();
-					    	change_name(v_arg, method_name);
-					    	Local arg_local = (Local) arg_list.get(i).clone();
-					    	change_name(arg_local, callee_name);
-							Type left_type = arg_local.getType();
-							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
-							Chain<SootField>  fields = left_claz.getFields();
-							for(SootField field : fields){
-								Local left_temp = (Local) arg_list.get(i).clone();
-								Local right_temp = (Local) args.get(i).clone();
-								change_name(left_temp, field.toString(), callee_name);
-								change_name(right_temp, field.toString(), method_name);
-								anderson.addAssignConstraint(right_temp, left_temp);
-							}
-					    	anderson.addAssignConstraint(v_arg, arg_local);
+					    	add_assign((Local) args.get(i), local_list.get(i), callee_name, method_name);
 						}
 						dfs_ongraph(callerUnits.get(u).method());
 						if(ie instanceof InstanceInvokeExpr){
-							Local this_local = (Local) callee.getActiveBody().getThisLocal().clone();
-							Local base_local = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
-							change_name(this_local, callee_name);
-							change_name(base_local, method_name);
-							Type left_type = base_local.getType();
-							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
-							Chain<SootField>  fields = left_claz.getFields();
-							for(SootField field : fields){
-								Local left_temp = (Local) callee.getActiveBody().getThisLocal().clone();
-								Local right_temp = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
-								change_name(left_temp, field.toString(), callee_name);
-								change_name(right_temp, field.toString(), method_name);
-								anderson.addAssignConstraint(left_temp, right_temp);
-							}
-							anderson.addAssignConstraint(this_local, base_local);
+						    add_assign((Local) ((InstanceInvokeExpr) ie).getBase(),
+									callee.getActiveBody().getThisLocal(),
+									method_name, callee_name);
 						}
 						for(int i = 0; i < len; i++){
-							Local v_arg = (Local) args.get(i).clone();
-							change_name(v_arg, method_name);
-							Local arg_local = (Local) arg_list.get(i).clone();
-							change_name(arg_local, callee_name);
-							Type left_type = v_arg.getType();
-							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
-							Chain<SootField>  fields = left_claz.getFields();
-							for(SootField field : fields){
-								Local left_temp = (Local) arg_list.get(i).clone();
-								Local right_temp = (Local) args.get(i).clone();
-								change_name(left_temp, field.toString(), callee_name);
-								change_name(right_temp, field.toString(), method_name);
-								anderson.addAssignConstraint(left_temp, right_temp);
-							}
-							anderson.addAssignConstraint(arg_local, v_arg);
+							add_assign(local_list.get(i), (Local) args.get(i), method_name, callee_name);
 						}
 					}
 				}
@@ -140,21 +108,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 						anderson.addNewConstraint(allocId, lop);
 					}
 					if (def_stmt.getLeftOp() instanceof Local && def_stmt.getRightOp() instanceof Local) {
-						Local left = (Local) def_stmt.getLeftOp().clone();
-						Local right = (Local) def_stmt.getRightOp().clone();
-						change_name(left, method_name);
-						change_name(right, method_name);
-						Type left_type = left.getType();
-						SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
-						Chain<SootField>  fields = left_claz.getFields();
-						for(SootField field : fields){
-							Local left_temp = (Local) def_stmt.getLeftOp().clone();
-							Local right_temp = (Local) def_stmt.getRightOp().clone();
-						    change_name(left_temp, field.toString(), method_name);
-						    change_name(right_temp, field.toString(), method_name);
-							anderson.addAssignConstraint(right_temp, left_temp);
-						}
-						anderson.addAssignConstraint(right, left);
+						add_assign((Local) def_stmt.getLeftOp(), (Local) def_stmt.getRightOp(), method_name, method_name);
 					}
 					if (def_stmt.getLeftOp() instanceof JInstanceFieldRef && def_stmt.getRightOp() instanceof Local) {
                         JInstanceFieldRef fieldRef = (JInstanceFieldRef) def_stmt.getLeftOp();
