@@ -4,17 +4,15 @@ import java.util.*;
 import java.util.Map.Entry;
 
 import soot.*;
-import soot.jimple.DefinitionStmt;
-import soot.jimple.IntConstant;
-import soot.jimple.InvokeExpr;
-import soot.jimple.InvokeStmt;
-import soot.jimple.NewExpr;
+import soot.jimple.*;
 import soot.jimple.internal.JInstanceFieldRef;
+import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.util.Chain;
 import soot.util.queue.QueueReader;
+import sun.security.jca.GetInstance;
 
 public class WholeProgramTransformer extends SceneTransformer {
 
@@ -35,13 +33,14 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	private Map<Unit, MethodOrMethodContext> callerUnits = new HashMap<>();
 	private TreeMap<Integer, Local> queries = new TreeMap<Integer, Local>();
+	private Map<SootMethod, Integer> call_times = new HashMap<>();
 	private Anderson anderson = new Anderson();
 
 	private void dfs_ongraph(SootMethod method){
 		if(!isInProject(method.getDeclaringClass().getName())){
 			return;
 		}
-		String method_name = method.getDeclaringClass().getName() + " " + method.getName();
+		String method_name = method.toString() + " " + call_times.get(method);
 		int allocId = 0;
 		if (method.hasActiveBody()) {
 			for (Unit u : method.getActiveBody().getUnits()) {
@@ -54,9 +53,28 @@ public class WholeProgramTransformer extends SceneTransformer {
 						change_name(v, method_name);
 						int id = ((IntConstant)ie.getArgs().get(0)).value;
 						queries.put(id, v);
-					} else if(callerUnits.containsKey(u)){
+					} else if(callerUnits.containsKey(u)) {
 						SootMethod callee = callerUnits.get(u).method();
-						String callee_name = callerUnits.get(u).method().toString();
+						Integer times = call_times.get(callee);
+						String callee_name = callee.toString() + " " + (times + 1);
+						call_times.put(callee, times+1);
+						if(ie instanceof InstanceInvokeExpr) {
+							Local this_local = (Local) callee.getActiveBody().getThisLocal().clone();
+							Local base_local = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
+							change_name(this_local, callee_name);
+							change_name(base_local, method_name);
+							Type left_type = this_local.getType();
+							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
+							Chain<SootField>  fields = left_claz.getFields();
+							for(SootField field : fields){
+								Local left_temp = (Local) callee.getActiveBody().getThisLocal().clone();
+								Local right_temp = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
+								change_name(left_temp, field.toString(), callee_name);
+								change_name(right_temp, field.toString(), method_name);
+								anderson.addAssignConstraint(right_temp, left_temp);
+							}
+							anderson.addAssignConstraint(base_local, this_local);
+						}
 						List<Local> arg_list = callee.getActiveBody().getParameterLocals();
 						List<Value> args = ie.getArgs();
 					    int len = args.size();
@@ -78,6 +96,23 @@ public class WholeProgramTransformer extends SceneTransformer {
 					    	anderson.addAssignConstraint(v_arg, arg_local);
 						}
 						dfs_ongraph(callerUnits.get(u).method());
+						if(ie instanceof InstanceInvokeExpr){
+							Local this_local = (Local) callee.getActiveBody().getThisLocal().clone();
+							Local base_local = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
+							change_name(this_local, callee_name);
+							change_name(base_local, method_name);
+							Type left_type = base_local.getType();
+							SootClass left_claz = Scene.v().getSootClass(left_type.toQuotedString());
+							Chain<SootField>  fields = left_claz.getFields();
+							for(SootField field : fields){
+								Local left_temp = (Local) callee.getActiveBody().getThisLocal().clone();
+								Local right_temp = (Local) ((InstanceInvokeExpr) ie).getBase().clone();
+								change_name(left_temp, field.toString(), callee_name);
+								change_name(right_temp, field.toString(), method_name);
+								anderson.addAssignConstraint(left_temp, right_temp);
+							}
+							anderson.addAssignConstraint(this_local, base_local);
+						}
 						for(int i = 0; i < len; i++){
 							Local v_arg = (Local) args.get(i).clone();
 							change_name(v_arg, method_name);
@@ -95,7 +130,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 							}
 							anderson.addAssignConstraint(arg_local, v_arg);
 						}
-
 					}
 				}
 				if (u instanceof DefinitionStmt) {
@@ -151,7 +185,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 				}
 			}
 		}
-
 	}
 
 	@Override
@@ -164,6 +197,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 					dst_name = edge.getTgt().method().getDeclaringClass().getName();
 			if(isInProject(src_name) && isInProject(dst_name)) {
 			    callerUnits.put(edge.srcUnit(), edge.getTgt().method());
+			    call_times.put(edge.getTgt().method(), 0);
 			}
 		}
 		ReachableMethods reachableMethods = Scene.v().getReachableMethods();
@@ -186,7 +220,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 				answer += " " + i;
 			}
 			answer += "\n";
-			System.out.println(answer);
 		}
 		AnswerPrinter.printAnswer(answer);
 
