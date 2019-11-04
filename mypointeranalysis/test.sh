@@ -12,7 +12,7 @@ mvn compile
 mvn dependency:copy-dependencies
 mvn -Dclassifier=sources dependency:copy-dependencies
 
-CLASSPATH=$(JARS=(target/dependency/*.jar); IFS=:; echo "${JARS[*]}"):target/classes
+CLASSPATH=$(JARS=(target/dependency/*.jar); IFS=:; echo "${JARS[*]}"):target/classes/
 
 echo 'Start Test'
 echo '---------------------------------'

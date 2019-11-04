@@ -10,3 +10,19 @@ VIRTUAL 49106
 STATIC 6479
 SPECIAL 10937
 INTERFACE 8659
+
+
+NopStmt
+DefinitionStmt IdentityStmt,AssignStmt
+IfStmt
+GotoStmt
+TableSwitchStmt
+LookupSwitchStmt
+InvokeStmt
+
+ReturnStmt
+ReturnVoidStmt
+
+ThrowStmt
+
+MonitorStmt EnterMonitorStmt ExitMonitorStmt
