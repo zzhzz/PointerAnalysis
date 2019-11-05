@@ -7,4 +7,8 @@ public class MyOutput {
             // new Exception().printStackTrace();
         }
     }
+
+    public static void myprint(String str) {
+        // System.out.println(str);
+    }
 }

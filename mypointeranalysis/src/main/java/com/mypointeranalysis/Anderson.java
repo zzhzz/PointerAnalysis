@@ -65,7 +65,7 @@ public class Anderson {
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(from) || !locals.containsKey(to)) {
 				enabled = false;
-				// System.out.println("Warning: Disable Rule " + toString());
+				MyOutput.myprint("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
@@ -96,7 +96,7 @@ public class Anderson {
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(frombase) || !locals.containsKey(to)) {
 				enabled = false;
-				// System.out.println("Warning: Disable Rule " + toString());
+				MyOutput.myprint("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
@@ -136,7 +136,7 @@ public class Anderson {
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(from) || !locals.containsKey(tobase)) {
 				enabled = false;
-				// System.out.println("Warning: Disable Rule " + toString());
+				MyOutput.myprint("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
