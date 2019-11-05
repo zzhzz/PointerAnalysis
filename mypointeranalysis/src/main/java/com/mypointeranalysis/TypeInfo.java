@@ -7,6 +7,7 @@ import java.util.Set;
 import soot.ArrayType;
 import soot.RefLikeType;
 import soot.RefType;
+import soot.Scene;
 import soot.SootClass;
 import soot.SootField;
 import soot.Type;
@@ -29,6 +30,16 @@ public class TypeInfo {
 
     static String getTypeName(RefLikeType t) {
         return t.toString();
+    }
+
+    static boolean canContain(TypeInfo child, TypeInfo parent) {
+        if(child.isClass() && parent.isClass()) {
+            SootClass scc = ((RefType)child.thistype).getSootClass();
+            SootClass scp = ((RefType)parent.thistype).getSootClass();
+            return Scene.v().getActiveHierarchy().isClassSubclassOf(scc, scp);
+        } else {
+            return getTypeName(child.thistype).equals(getTypeName(parent.thistype));
+        }
     }
 
     TypeInfo(RefLikeType t) {

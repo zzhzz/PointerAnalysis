@@ -16,6 +16,8 @@ public class VirtualTest
         {
             System.out.println("x");
         }
+        P[][] p2 = new P[3][];
+        System.out.println(p2);
         return 0;
     }
 }

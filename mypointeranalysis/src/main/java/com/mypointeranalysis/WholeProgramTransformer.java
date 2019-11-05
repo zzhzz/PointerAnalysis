@@ -2,6 +2,7 @@ package com.mypointeranalysis;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import soot.Kind;
 import soot.Local;
@@ -54,9 +55,11 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 
 class TestCase {
+	int id;
 	String method, local;
 
-	TestCase(String method, String local) {
+	TestCase(int id, String method, String local) {
+		this.id = id;
 		this.method = method;
 		this.local = local;
 	}
@@ -90,7 +93,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 	IdentityHashMap<Stmt, List<Invocation>> call_relation = new IdentityHashMap<>();
 	IdentityHashMap<SootMethod, Object> entries = new IdentityHashMap<>();
 
-	HashMap<Integer, List<TestCase>> testcases = new HashMap<>();
+	// HashMap<Integer, List<TestCase>> testcases = new HashMap<>();
+	List<TestCase> testcases = new ArrayList<>();
 
 	void process_edges() {
 		int cur_call_id = 0;
@@ -189,9 +193,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 					} else if (invoke_sm.getName().equals("test")) {
 						int testcase_id = ((IntConstant) ie.getArg(0)).value;
 						Local testcase_local = ((Local) ie.getArg(1));
-						if (!testcases.containsKey(testcase_id))
-							testcases.put(testcase_id, new ArrayList<TestCase>());
-						testcases.get(testcase_id).add(new TestCase(sm_name, getLocalName(testcase_local)));
+						// if (!testcases.containsKey(testcase_id))
+						// 	testcases.put(testcase_id, new ArrayList<TestCase>());
+						// testcases.get(testcase_id).add(new TestCase(sm_name, getLocalName(testcase_local)));
+						testcases.add(new TestCase(testcase_id, sm_name, getLocalName(testcase_local)));
 					}
 				} else {
 					process_one_invoke_expr(sm_name, ie, (Stmt) u, null);
@@ -251,13 +256,19 @@ public class WholeProgramTransformer extends SceneTransformer {
 							InvokeExpr ie = (InvokeExpr) right;
 							process_one_invoke_expr(sm_name, ie, (Stmt) u, localleft);
 						} else if (right instanceof NewArrayExpr) {
-							anderson.addNew(sm_name, localleft_name, allocid);
+							NewArrayExpr nae = (NewArrayExpr)right;
+							RefLikeType t = nae.getBaseType().makeArrayType();
+							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
 							allocid = 0;
 						} else if (right instanceof NewExpr) {
-							anderson.addNew(sm_name, localleft_name, allocid);
+							NewExpr ne = (NewExpr)right;
+							RefLikeType t = ne.getBaseType();
+							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
 							allocid = 0;
 						} else if (right instanceof NewMultiArrayExpr) {
-							anderson.addNew(sm_name, localleft_name, allocid);
+							// NewMultiArrayExpr nmae = (NewMultiArrayExpr)right;
+							// nmae.getBaseType();
+							// anderson.addNew(sm_name, localleft_name, allocid);
 							allocid = 0;
 						} else if (right instanceof CaughtExceptionRef) {
 							anderson.addAssignConstraint_intra_from_static(sm_name, "@caughtexception", localleft_name);
@@ -326,6 +337,17 @@ public class WholeProgramTransformer extends SceneTransformer {
 			}
 		}
 	}
+	
+	void print_testcases() {
+		for(TestCase tc: testcases) {
+			Set<Integer> results = anderson.getAllocIds(tc.method, tc.local);
+			String answer = Integer.toString(tc.id) + ":";
+			for(int i: results) {
+				answer += " " + i;
+			}
+			System.out.println(answer);
+		}
+	}
 
 	@Override
 	protected void internalTransform(String phaseName, Map<String, String> options) {
@@ -335,5 +357,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		while (qr.hasNext()) {
 			process_method(qr.next().method());
 		}
+		anderson.run();
+		print_testcases();
 	}
 }
