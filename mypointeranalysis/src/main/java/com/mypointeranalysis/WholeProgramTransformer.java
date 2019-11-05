@@ -1,12 +1,7 @@
 package com.mypointeranalysis;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 import soot.Kind;
 import soot.Local;
@@ -16,41 +11,43 @@ import soot.Scene;
 import soot.SceneTransformer;
 import soot.SootField;
 import soot.SootMethod;
-import soot.StmtAddressType;
 import soot.Type;
 import soot.Unit;
 import soot.Value;
+
+
 import soot.jimple.CastExpr;
 import soot.jimple.ThrowStmt;
 import soot.jimple.ArrayRef;
-import soot.jimple.AssignStmt;
 import soot.jimple.CaughtExceptionRef;
 import soot.jimple.Constant;
 import soot.jimple.DefinitionStmt;
-import soot.jimple.IdentityStmt;
+import soot.jimple.EnterMonitorStmt;
+import soot.jimple.ExitMonitorStmt;
+import soot.jimple.GotoStmt;
+import soot.jimple.IfStmt;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.IntConstant;
-import soot.jimple.InterfaceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.InvokeStmt;
+import soot.jimple.JimpleBody;
+import soot.jimple.LookupSwitchStmt;
 import soot.jimple.NewArrayExpr;
 import soot.jimple.NewExpr;
 import soot.jimple.NewMultiArrayExpr;
 import soot.jimple.NullConstant;
 import soot.jimple.ParameterRef;
-import soot.jimple.SpecialInvokeExpr;
+import soot.jimple.ReturnStmt;
+import soot.jimple.ReturnVoidStmt;
 import soot.jimple.StaticFieldRef;
-import soot.jimple.StaticInvokeExpr;
-import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.util.queue.QueueReader;
 
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.Stmt;
+import soot.jimple.TableSwitchStmt;
 import soot.jimple.ThisRef;
-import soot.jimple.UnopExpr;
-import soot.jimple.VirtualInvokeExpr;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -100,6 +97,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		List<SootMethod> ents = Scene.v().getEntryPoints();
 		for (SootMethod sm : ents) {
 			entries.put(sm, null);
+			anderson.addFunctionCopy(sm.getSignature(), -1);
 			System.out.println("EntryPoints: " + sm.toString());
 		}
 
@@ -111,10 +109,13 @@ public class WholeProgramTransformer extends SceneTransformer {
 			String kname = k.name();
 			if (kname == "FINALIZE" || kname == "THREAD" || kname == "CLINIT") {
 				entries.put(e.tgt(), null);
+				anderson.addFunctionCopy(e.tgt().getSignature(), -1);
 			} else if (kname == "VIRTUAL" || kname == "STATIC" || kname == "SPECIAL" || kname == "INTERFACE") {
 				if (!call_relation.containsKey(e.srcStmt()))
 					call_relation.put(e.srcStmt(), new ArrayList<Invocation>());
-				call_relation.get(e.srcStmt()).add(new Invocation(cur_call_id++, e.tgt()));
+				int thiscallid = cur_call_id++;
+				call_relation.get(e.srcStmt()).add(new Invocation(thiscallid, e.tgt()));
+				anderson.addFunctionCopy(e.tgt().getSignature(), thiscallid);
 			} else {
 				// System.out.println("Ignore edge: " + e.toString());
 			}
@@ -169,7 +170,16 @@ public class WholeProgramTransformer extends SceneTransformer {
 		if (!sm.hasActiveBody())
 			return;
 
-		for (Unit u : sm.getActiveBody().getUnits()) {
+		JimpleBody jb = (JimpleBody)sm.getActiveBody();
+
+		for(Local l : jb.getLocals()) {
+			Type lt = l.getType();
+			if(lt instanceof RefLikeType) {
+				anderson.addLocal(sm_name, l.getName(), TypeInfo.getTypeInfo((RefLikeType)lt));
+			}
+		}
+
+		for (Unit u : jb.getUnits()) {
 			if (u instanceof InvokeStmt) {
 				InvokeExpr ie = ((InvokeStmt) u).getInvokeExpr();
 				SootMethod invoke_sm = ie.getMethod();
@@ -294,6 +304,25 @@ public class WholeProgramTransformer extends SceneTransformer {
 				Value v = ts.getOp();
 				assert v instanceof Local;
 				anderson.addAssignConstraint_intra_to_static(sm_name, "@caughtexception", getLocalName((Local) v));
+			} else if(u instanceof ReturnStmt) {
+				ReturnStmt rs = (ReturnStmt)u;
+				Value v = rs.getOp();
+				if(v.getType() instanceof RefLikeType) {
+					if(v instanceof Local) {
+						anderson.addAssignConstraint_intra(sm_name, getLocalName((Local) v), "@ret");
+					} else {
+						assert v instanceof NullConstant;
+					}
+				}
+			} else if(u instanceof IfStmt) {
+			} else if (u instanceof ReturnVoidStmt) {
+			} else if (u instanceof GotoStmt) {
+			} else if (u instanceof EnterMonitorStmt) {
+			} else if (u instanceof ExitMonitorStmt) {
+			} else if (u instanceof TableSwitchStmt ) {
+			} else if (u instanceof LookupSwitchStmt) {
+			} else {
+				assert false;
 			}
 		}
 	}

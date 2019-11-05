@@ -17,3 +17,4 @@ CLASSPATH=$(JARS=(target/dependency/*.jar); IFS=:; echo "${JARS[*]}"):target/cla
 echo 'Start Test'
 echo '---------------------------------'
 java -cp $CLASSPATH com.mypointeranalysis.MyPointerAnalysis ../code $TEST_CASE
+# java -cp $CLASSPATH soot.Main -soot-classpath ../code:../code/jce.jar:../code/rt.jar -f jimple $TEST_CASE
