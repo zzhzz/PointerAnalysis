@@ -373,9 +373,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 			Set<Integer> results = anderson.getAllocIds(tc.method, tc.local);
 			String answer = Integer.toString(tc.id) + ":";
 			for(int i: results) {
-				answer += " " + Integer.toString(i);
+				if(i != 0)
+					answer += " " + Integer.toString(i);
 			}
 			System.out.println(answer);
+			AnswerPrinter.printAnswer(answer);
 		}
 	}
 
