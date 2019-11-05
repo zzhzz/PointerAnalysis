@@ -58,14 +58,14 @@ public class Anderson {
 			this.from = from;
 			this.to = to;
 			enabled = true;
-			System.out.println(toString());
+			// System.out.println(toString());
 		}
 
 		@Override
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(from) || !locals.containsKey(to)) {
 				enabled = false;
-				System.out.println("Warning: Disable Rule " + toString());
+				// System.out.println("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
@@ -89,14 +89,14 @@ public class Anderson {
 			this.to = to;
 			this.frombase = frombase;
 			enabled = true;
-			System.out.println(toString());
+			// System.out.println(toString());
 		}
 
 		@Override
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(frombase) || !locals.containsKey(to)) {
 				enabled = false;
-				System.out.println("Warning: Disable Rule " + toString());
+				// System.out.println("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
@@ -129,14 +129,14 @@ public class Anderson {
 			this.to = to;
 			this.tobase = tobase;
 			enabled = true;
-			System.out.println(toString());
+			// System.out.println(toString());
 		}
 
 		@Override
 		public boolean UpdatePointto() {
 			if (!locals.containsKey(from) || !locals.containsKey(tobase)) {
 				enabled = false;
-				System.out.println("Warning: Disable Rule " + toString());
+				// System.out.println("Warning: Disable Rule " + toString());
 			}
 			if (!enabled)
 				return false;
@@ -173,7 +173,7 @@ public class Anderson {
 
 	public void addFunctionCopy(String funcname, int call_id) {
 		if (!funccopys.containsKey(funcname)) {
-			System.out.println("FuncCopy: " + funcname);
+			// System.out.println("FuncCopy: " + funcname);
 			funccopys.put(funcname, new ArrayList<Integer>());
 		}
 		funccopys.get(funcname).add(call_id);
@@ -240,11 +240,11 @@ public class Anderson {
 		// System.out.println("AddLocal: " + method);
 		for (int cpyid : copyids) {
 			locals.put(localName(method, cpyid, localname), new LocalPointer(t));
-			System.out.println("AddLocal: " + localName(method, cpyid, localname));
+			// System.out.println("AddLocal: " + localName(method, cpyid, localname));
 		}
-		int numlocals = locals.size();
-		if (numlocals % 1000 == 0)
-			System.out.println("NUMLOCAL: " + Integer.toString(numlocals));
+		// int numlocals = locals.size();
+		// if (numlocals % 1000 == 0)
+			// System.out.println("NUMLOCAL: " + Integer.toString(numlocals));
 	}
 
 	public void addNew(String method, String localname, int allocid, TypeInfo t) {
@@ -254,9 +254,13 @@ public class Anderson {
 			heapObjects.add(new HeapObject(t, allocid));
 			locals.get(localName(method, cpyid, localname)).pointto.add(newheapid);
 		}
-		int numlocals = heapObjects.size();
-		if (numlocals % 1000 == 0)
-			System.out.println("NUMHEAP: " + Integer.toString(numlocals));
+		// int numlocals = heapObjects.size();
+		// if (numlocals % 1000 == 0)
+			// System.out.println("NUMHEAP: " + Integer.toString(numlocals));
+	}
+
+	public void addStatic(String name, TypeInfo t) {
+		locals.put(name, new LocalPointer(t));
 	}
 
 	public void addNewMultiArray(String method, String localname, int allocid, TypeInfo t, int depth) {
@@ -264,7 +268,7 @@ public class Anderson {
 	}
 
 	public void run() {
-		System.out.println("RUN");
+		// System.out.println("RUN");
 		for (boolean flag = true; flag;) {
 			flag = false;
 			for (AssignConstraintUpdate acu : assignConstraintList) {
@@ -279,7 +283,7 @@ public class Anderson {
 		Set<Integer> results = new TreeSet<>();
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			System.out.println(localName(method, cpyid, localname));
+			// System.out.println(localName(method, cpyid, localname));
 			Set<Integer> heapids = locals.get(localName(method, cpyid, localname)).pointto;
 			for (int heapid : heapids) {
 				results.add(heapObjects.get(heapid).allocid);
@@ -290,7 +294,7 @@ public class Anderson {
 
 	public void printall() {
 		for(Map.Entry<String, LocalPointer> p: locals.entrySet()) {
-			System.out.println("Result: " + p.getKey() + ":" + p.getValue().pointto.toString());
+			// System.out.println("Result: " + p.getKey() + ":" + p.getValue().pointto.toString());
 		}
 	}
 }

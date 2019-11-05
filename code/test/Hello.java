@@ -24,6 +24,7 @@ public class Hello {
     if (args.length > 1) a = b;
     BenchmarkN.test(1, a); 
     BenchmarkN.test(2, c); 
+    System.out.println("Hello World!\n");
 
     main2();
   }

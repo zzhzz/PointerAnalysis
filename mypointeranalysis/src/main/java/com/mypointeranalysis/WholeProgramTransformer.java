@@ -24,6 +24,7 @@ import soot.jimple.CastExpr;
 import soot.jimple.ThrowStmt;
 import soot.jimple.ArrayRef;
 import soot.jimple.CaughtExceptionRef;
+import soot.jimple.ClassConstant;
 import soot.jimple.Constant;
 import soot.jimple.DefinitionStmt;
 import soot.jimple.EnterMonitorStmt;
@@ -50,6 +51,7 @@ import soot.util.queue.QueueReader;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.Stmt;
+import soot.jimple.StringConstant;
 import soot.jimple.TableSwitchStmt;
 import soot.jimple.ThisRef;
 
@@ -84,9 +86,11 @@ class Invocation {
 public class WholeProgramTransformer extends SceneTransformer {
 
 	boolean shouldanalysis(SootMethod sm) {
+		// if(sm.isJavaLibraryMethod())
+		// 	return false;
 		String packagename = sm.getDeclaringClass().getPackageName();
-		return (packagename.startsWith("benchmark") || packagename.startsWith("test"))
-				|| consider_methods.contains(getMethodName(sm));
+		return (packagename.startsWith("benchmark") || packagename.startsWith("test"));
+				// || consider_methods.contains(getMethodName(sm));
 	}
 
 	public static String getMethodName(SootMethod sm) {
@@ -109,33 +113,34 @@ public class WholeProgramTransformer extends SceneTransformer {
 	Set<String> consider_methods = new HashSet<>();
 
 	Set<Integer> allallocids = new TreeSet<>();
+	Set<String> processed_class = new TreeSet<>();
 
 	void process_edges() {
-		SootClass entry_class = Scene.v().getSootClass(MyPointerAnalysis.entryclass);
-		SootMethod entry_method = entry_class.getMethodByName("main");
+		// SootClass entry_class = Scene.v().getSootClass(MyPointerAnalysis.entryclass);
+		// SootMethod entry_method = entry_class.getMethodByName("main");
 		CallGraph cg = Scene.v().getCallGraph();
 		List<SootMethod> ents = Scene.v().getEntryPoints();
 
-		Queue<SootMethod> search_queue = new ArrayDeque<>();
+		// Queue<SootMethod> search_queue = new ArrayDeque<>();
 
-		search_queue.add(entry_method);
-		for (SootMethod sm : ents) {
-			if (shouldanalysis(sm)) {
-				search_queue.add(sm);
-			}
-		}
+		// search_queue.add(entry_method);
+		// for (SootMethod sm : ents) {
+		// 	if (shouldanalysis(sm)) {
+		// 		search_queue.add(sm);
+		// 	}
+		// }
 
-		while (!search_queue.isEmpty()) {
-			SootMethod cur = search_queue.remove();
-			String cur_name = getMethodName(cur);
-			if (!consider_methods.add(cur_name))
-				continue;
-			Iterator<Edge> edges = cg.edgesOutOf(cur);
-			while (edges.hasNext()) {
-				Edge e = edges.next();
-				search_queue.add(e.tgt());
-			}
-		}
+		// while (!search_queue.isEmpty()) {
+		// 	SootMethod cur = search_queue.remove();
+		// 	String cur_name = getMethodName(cur);
+		// 	if (!consider_methods.add(cur_name))
+		// 		continue;
+		// 	Iterator<Edge> edges = cg.edgesOutOf(cur);
+		// 	while (edges.hasNext()) {
+		// 		Edge e = edges.next();
+		// 		search_queue.add(e.tgt());
+		// 	}
+		// }
 
 		int cur_call_id = 0;
 		for (SootMethod sm : ents) {
@@ -163,7 +168,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 				call_relation.get(e.srcStmt()).add(new Invocation(thiscallid, e.tgt()));
 				anderson.addFunctionCopy(getMethodName(e.tgt()), thiscallid);
 			} else {
-				System.out.println("Ignore edge: " + e.toString());
+				// System.out.println("Ignore edge: " + e.toString());
 			}
 		}
 	}
@@ -181,8 +186,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 		String method_to_name = getMethodName(method_to);
 		int argcount = from.getArgCount();
 		if (argcount != method_to.getParameterCount()) {
-			System.out.println("NotEqual: " + from.toString());
-			MyAssert.myassert(false);
+			// System.out.println("NotEqual: " + from.toString());
+			MyOutput.myassert(false);
 			return;
 		}
 		if (from instanceof InstanceInvokeExpr) {
@@ -195,11 +200,17 @@ public class WholeProgramTransformer extends SceneTransformer {
 			if (!(method_to.getParameterType(i) instanceof RefLikeType))
 				continue;
 			Value v = from.getArg(i);
-			MyAssert.myassert(v instanceof NullConstant || v instanceof Local);
+			// MyAssert.myassert(v instanceof NullConstant || v instanceof Local);
 			if (v instanceof Local) {
 				Local l = (Local) v;
 				anderson.addAssignConstraint_inter_toid(method_from, getLocalName(l), method_to_name, call_id_to,
 						"@parameter" + Integer.toString(i));
+			} else if(v instanceof NullConstant) {
+			} else if(v instanceof StringConstant) {
+			} else if(v instanceof ClassConstant) {
+			} else {
+				MyOutput.myassert(false);
+				// System.out.println("ARGTYPE 206: " + v.getClass().getName() + " " + v.toString());
 			}
 		}
 
@@ -209,12 +220,30 @@ public class WholeProgramTransformer extends SceneTransformer {
 		}
 	}
 
+	void process_class(SootClass cls) {
+		if(!processed_class.add(cls.getName())) {
+			return;
+		}
+		for(SootField field: cls.getFields()) {
+			if(!field.isStatic()) {
+				continue;
+			}
+			if(!(field.getType() instanceof RefLikeType)) {
+				continue;
+			}
+			// System.out.println("static field: " + getFieldName(field));
+			anderson.addStatic(getFieldName(field), TypeInfo.getTypeInfo((RefLikeType)field.getType()));
+		}
+	}
+
 	void process_method(SootMethod sm) {
 		String sm_name = getMethodName(sm);
 		int allocid = 0;
 
 		if (!shouldanalysis(sm))
 			return;
+
+		process_class(sm.getDeclaringClass());
 
 		System.out.println("Process: " + sm_name);
 
@@ -247,7 +276,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		}
 
 		for (Unit u : jb.getUnits()) {
-			System.out.println(u);
+			// System.out.println(u);
 			if (u instanceof InvokeStmt) {
 				InvokeExpr ie = ((InvokeStmt) u).getInvokeExpr();
 				SootMethod invoke_sm = ie.getMethod();
@@ -271,8 +300,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 				Value left = ((DefinitionStmt) u).getLeftOp();
 				Value right = ((DefinitionStmt) u).getRightOp();
 				if (!(left instanceof Local) && !(right instanceof Local) && !(right instanceof Constant)) {
-					System.out.println("Left and right: " + u.toString());
-					MyAssert.myassert(false);
+					// System.out.println("Left and right: " + u.toString());
+					MyOutput.myassert(false);
 				} else if (right instanceof Constant) {
 					// right is value or null, do nothing.
 				} else if (left instanceof Local && right instanceof Local) {
@@ -299,7 +328,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 								anderson.addAssignConstraint_intra_from_filed(sm_name, getLocalName((Local) base),
 										"#arrayvalue", localleft_name);
 							} else {
-								MyAssert.myassert(false);
+								MyOutput.myassert(false);
 							}
 						} else if (right instanceof InstanceFieldRef) {
 							InstanceFieldRef ifr = (InstanceFieldRef) right;
@@ -308,7 +337,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 								anderson.addAssignConstraint_intra_from_filed(sm_name, getLocalName((Local) base),
 										getFieldName(ifr.getField()), localleft_name);
 							} else {
-								MyAssert.myassert(false);
+								MyOutput.myassert(false);
 							}
 						} else if (right instanceof StaticFieldRef) {
 							StaticFieldRef sfr = (StaticFieldRef) right;
@@ -321,7 +350,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 										localleft_name);
 							} else if (ce.getOp() instanceof NullConstant) {
 							} else {
-								MyAssert.myassert(false);
+								MyOutput.myassert(false);
 							}
 						} else if (right instanceof InvokeExpr) {
 							InvokeExpr ie = (InvokeExpr) right;
@@ -350,7 +379,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 						} else if (right instanceof ThisRef) {
 							anderson.addAssignConstraint_intra(sm_name, "@this", localleft_name);
 						} else {
-							MyAssert.myassert(false);
+							MyOutput.myassert(false);
 						}
 					}
 				} else if (right instanceof Local) {
@@ -365,7 +394,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 								anderson.addAssignConstraint_intra_to_field(sm_name, localright_name,
 										getLocalName((Local) base), "#arrayvalue");
 							} else {
-								MyAssert.myassert(false);
+								MyOutput.myassert(false);
 							}
 						} else if (left instanceof InstanceFieldRef) {
 							InstanceFieldRef ifr = (InstanceFieldRef) left;
@@ -374,18 +403,18 @@ public class WholeProgramTransformer extends SceneTransformer {
 								anderson.addAssignConstraint_intra_to_field(sm_name, localright_name,
 										getLocalName((Local) base), getFieldName(ifr.getField()));
 							} else {
-								MyAssert.myassert(false);
+								MyOutput.myassert(false);
 							}
 						} else if (left instanceof StaticFieldRef) {
 							StaticFieldRef sfr = (StaticFieldRef) left;
 							anderson.addAssignConstraint_intra_to_static(sm_name, localright_name,
 									getFieldName(sfr.getField()));
 						} else {
-							MyAssert.myassert(false);
+							MyOutput.myassert(false);
 						}
 					}
 				} else {
-					MyAssert.myassert(false);
+					MyOutput.myassert(false);
 				}
 			} else if (u instanceof ThrowStmt) {
 				ThrowStmt ts = (ThrowStmt) u;
@@ -393,7 +422,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 				if (v instanceof Local) {
 					anderson.addAssignConstraint_intra_to_static(sm_name, "@caughtexception", getLocalName((Local) v));
 				} else {
-					MyAssert.myassert(false);
+					MyOutput.myassert(false);
 				}
 			} else if (u instanceof ReturnStmt) {
 				ReturnStmt rs = (ReturnStmt) u;
@@ -401,8 +430,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 				if (v.getType() instanceof RefLikeType) {
 					if (v instanceof Local) {
 						anderson.addAssignConstraint_intra(sm_name, getLocalName((Local) v), "@ret");
+					} else if(v instanceof NullConstant) {
+					} else if(v instanceof StringConstant) {
+					} else if(v instanceof ClassConstant) {
 					} else {
-						MyAssert.myassert(v instanceof NullConstant);
+						MyOutput.myassert(false);
+						// System.out.println("ARGTYPE 409: " + v.getClass().getName() + " " + v.toString());
 					}
 				}
 			} else if (u instanceof IfStmt) {
@@ -413,7 +446,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			} else if (u instanceof TableSwitchStmt) {
 			} else if (u instanceof LookupSwitchStmt) {
 			} else {
-				MyAssert.myassert(false);
+				MyOutput.myassert(false);
 			}
 		}
 	}
