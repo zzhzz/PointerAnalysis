@@ -369,16 +369,20 @@ public class WholeProgramTransformer extends SceneTransformer {
 	
 	void print_testcases() {
 		anderson.printall();
+		StringBuilder builder = new StringBuilder();
 		for(TestCase tc: testcases) {
 			Set<Integer> results = anderson.getAllocIds(tc.method, tc.local);
-			String answer = Integer.toString(tc.id) + ":";
+			builder.append(Integer.toString(tc.id));
+			builder.append(":");
 			for(int i: results) {
-				if(i != 0)
-					answer += " " + Integer.toString(i);
+				if(i != 0) {
+					builder.append(" ");
+					builder.append(Integer.toString(i));
+				}
 			}
-			System.out.println(answer);
-			AnswerPrinter.printAnswer(answer);
+			builder.append("\n");
 		}
+		AnswerPrinter.printAnswer(builder.toString());
 	}
 
 	@Override
