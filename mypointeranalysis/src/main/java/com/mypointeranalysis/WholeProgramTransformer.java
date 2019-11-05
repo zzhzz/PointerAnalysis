@@ -12,7 +12,6 @@ import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.toolkits.callgraph.ReachableMethods;
 import soot.util.Chain;
 import soot.util.queue.QueueReader;
-import sun.security.jca.GetInstance;
 
 public class WholeProgramTransformer extends SceneTransformer {
 
@@ -28,7 +27,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	private void change_name(Local v, String field_name, String method_name) {
 		String v_name = v.getName();
-		v.setName(method_name + " " + v_name + " " + field_name);
+		v.setName(method_name + " " + v_name + "||| " + field_name);
 	}
 
 	private Map<Unit, MethodOrMethodContext> callerUnits = new HashMap<>();
@@ -45,13 +44,13 @@ public class WholeProgramTransformer extends SceneTransformer {
 		    right_temp = (Local) right.clone();
 			change_name(left_temp, field.toString(), left_name);
 			change_name(right_temp, field.toString(), right_name);
-			anderson.addAssignConstraint(right_temp, left_temp);
+			anderson.addAssignConstraint(right_temp, left_temp, 0);
 		}
 		left_temp = (Local) left.clone();
 		right_temp = (Local) right.clone();
 		change_name(left_temp, left_name);
 		change_name(right_temp, right_name);
-		anderson.addAssignConstraint(right_temp, left_temp);
+		anderson.addAssignConstraint(right_temp, left_temp, 0);
 	}
 
 	private class Operands {
@@ -140,7 +139,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 							rightop = null;
 						}
 						if (leftop != null && rightop != null) {
-							anderson.addAssignConstraint(rightop.getLocal(), leftop.getLocal());
+							if(def_stmt.getLeftOp() instanceof InstanceFieldRef && def_stmt.getRightOp() instanceof  Local){
+								anderson.addAssignConstraint(rightop.getLocal(), leftop.getLocal(), 1);
+							} else {
+								anderson.addAssignConstraint(rightop.getLocal(), leftop.getLocal(), 0);
+							}
 						}
 					}
 				}
