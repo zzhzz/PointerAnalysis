@@ -8,6 +8,7 @@ import soot.Kind;
 import soot.Local;
 import soot.MethodOrMethodContext;
 import soot.RefLikeType;
+import soot.RefType;
 import soot.Scene;
 import soot.SceneTransformer;
 import soot.SootField;
@@ -51,7 +52,6 @@ import soot.jimple.TableSwitchStmt;
 import soot.jimple.ThisRef;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 
 class TestCase {
@@ -77,8 +77,13 @@ class Invocation {
 
 public class WholeProgramTransformer extends SceneTransformer {
 
+	static boolean shouldanalysis(SootMethod sm) {
+		String packagename = sm.getDeclaringClass().getPackageName();
+		return (packagename.startsWith("benchmark") || packagename.startsWith("test"));
+	}
+
 	public static String getMethodName(SootMethod sm) {
-		return sm.getSignature();
+		return sm.getDeclaringClass().getName() + "::" + sm.getName() + sm.getParameterTypes().toString();
 	}
 
 	public static String getLocalName(Local l) {
@@ -93,7 +98,6 @@ public class WholeProgramTransformer extends SceneTransformer {
 	IdentityHashMap<Stmt, List<Invocation>> call_relation = new IdentityHashMap<>();
 	IdentityHashMap<SootMethod, Object> entries = new IdentityHashMap<>();
 
-	// HashMap<Integer, List<TestCase>> testcases = new HashMap<>();
 	List<TestCase> testcases = new ArrayList<>();
 
 	void process_edges() {
@@ -101,27 +105,31 @@ public class WholeProgramTransformer extends SceneTransformer {
 		List<SootMethod> ents = Scene.v().getEntryPoints();
 		for (SootMethod sm : ents) {
 			entries.put(sm, null);
-			anderson.addFunctionCopy(sm.getSignature(), -1);
-			System.out.println("EntryPoints: " + sm.toString());
+			if(!shouldanalysis(sm))
+				continue;
+			anderson.addFunctionCopy(getMethodName(sm), -1);
+			// System.out.println("EntryPoints: " + sm.toString());
 		}
 
 		CallGraph cg = Scene.v().getCallGraph();
 		QueueReader<Edge> edges = cg.listener();
 		while (edges.hasNext()) {
 			Edge e = edges.next();
+			if(!shouldanalysis(e.src()) || !shouldanalysis(e.tgt()))
+				continue;
 			Kind k = e.kind();
 			String kname = k.name();
-			if (kname == "FINALIZE" || kname == "THREAD" || kname == "CLINIT") {
+			if (kname == "FINALIZE" || kname == "THREAD" || kname == "CLINIT" || kname == "PRIVILEGED") {
 				entries.put(e.tgt(), null);
-				anderson.addFunctionCopy(e.tgt().getSignature(), -1);
+				anderson.addFunctionCopy(getMethodName(e.tgt()), -1);
 			} else if (kname == "VIRTUAL" || kname == "STATIC" || kname == "SPECIAL" || kname == "INTERFACE") {
 				if (!call_relation.containsKey(e.srcStmt()))
 					call_relation.put(e.srcStmt(), new ArrayList<Invocation>());
 				int thiscallid = cur_call_id++;
 				call_relation.get(e.srcStmt()).add(new Invocation(thiscallid, e.tgt()));
-				anderson.addFunctionCopy(e.tgt().getSignature(), thiscallid);
+				anderson.addFunctionCopy(getMethodName(e.tgt()), thiscallid);
 			} else {
-				// System.out.println("Ignore edge: " + e.toString());
+				System.out.println("Ignore edge: " + e.toString());
 			}
 		}
 	}
@@ -138,10 +146,9 @@ public class WholeProgramTransformer extends SceneTransformer {
 			Local returnlocal) {
 		String method_to_name = getMethodName(method_to);
 		int argcount = from.getArgCount();
-		// System.out.println("ArgCount:" + Integer.toString(argcount) + " " +
-		// Integer.toString(method_to.getParameterCount()));
 		if (argcount != method_to.getParameterCount()) {
 			System.out.println("NotEqual: " + from.toString());
+			assert false;
 		}
 		if (from instanceof InstanceInvokeExpr) {
 			InstanceInvokeExpr ine = (InstanceInvokeExpr) from;
@@ -171,6 +178,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 		String sm_name = getMethodName(sm);
 		int allocid = 0;
 
+		if(!shouldanalysis(sm))
+			return;
+
+		System.out.println("Process: " + sm_name);
+
 		if (!sm.hasActiveBody())
 			return;
 
@@ -183,7 +195,24 @@ public class WholeProgramTransformer extends SceneTransformer {
 			}
 		}
 
+		for(int i = 0; i < sm.getParameterCount(); ++i) {
+			Type lt = sm.getParameterType(i);
+			if(lt instanceof RefLikeType) {
+				anderson.addLocal(sm_name, "@parameter" + Integer.toString(i), TypeInfo.getTypeInfo((RefLikeType)lt));
+			}
+		}
+
+		if(!sm.isStatic()) {
+			anderson.addLocal(sm_name, "@this", TypeInfo.getTypeInfo(RefType.v(sm.getDeclaringClass())));
+		}
+
+		Type rt = sm.getReturnType();
+		if(rt instanceof RefLikeType) {
+			anderson.addLocal(sm_name, "@ret", TypeInfo.getTypeInfo((RefLikeType)rt));
+		}
+
 		for (Unit u : jb.getUnits()) {
+			System.out.println(u);
 			if (u instanceof InvokeStmt) {
 				InvokeExpr ie = ((InvokeStmt) u).getInvokeExpr();
 				SootMethod invoke_sm = ie.getMethod();
@@ -215,7 +244,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 					Local localleft = (Local) left;
 					Local localright = (Local) right;
 					if ((localleft.getType() instanceof RefLikeType)) {
-						anderson.addAssignConstraint_intra(sm_name, getLocalName(localleft), getLocalName(localright));
+						anderson.addAssignConstraint_intra(sm_name, getLocalName(localright), getLocalName(localleft));
 					}
 				} else if (left instanceof Local) {
 					// to local assignment
@@ -274,10 +303,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 							anderson.addAssignConstraint_intra_from_static(sm_name, "@caughtexception", localleft_name);
 						} else if (right instanceof ParameterRef) {
 							ParameterRef pr = (ParameterRef) right;
-							anderson.addAssignConstraint_intra_from_static(sm_name,
+							anderson.addAssignConstraint_intra(sm_name,
 									"@parameter" + Integer.toString(pr.getIndex()), localleft_name);
 						} else if (right instanceof ThisRef) {
-							anderson.addAssignConstraint_intra_from_static(sm_name, "@this", localleft_name);
+							anderson.addAssignConstraint_intra(sm_name, "@this", localleft_name);
 						} else {
 							assert false;
 						}
@@ -339,11 +368,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 	}
 	
 	void print_testcases() {
+		anderson.printall();
 		for(TestCase tc: testcases) {
 			Set<Integer> results = anderson.getAllocIds(tc.method, tc.local);
 			String answer = Integer.toString(tc.id) + ":";
 			for(int i: results) {
-				answer += " " + i;
+				answer += " " + Integer.toString(i);
 			}
 			System.out.println(answer);
 		}

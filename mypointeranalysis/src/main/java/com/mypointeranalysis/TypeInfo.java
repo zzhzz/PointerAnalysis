@@ -1,6 +1,7 @@
 package com.mypointeranalysis;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -17,9 +18,12 @@ public class TypeInfo {
     static HashMap<String, TypeInfo> typeinfos = new HashMap<>();
 
     static TypeInfo getTypeInfo(RefLikeType t) {
+        // System.out.println(t.toString());
         String tname = getTypeName(t);
         if (!typeinfos.containsKey(tname)) {
-            typeinfos.put(tname, new TypeInfo(t));
+            TypeInfo newtypeinfo = new TypeInfo(t);
+            typeinfos.put(tname, newtypeinfo);
+            newtypeinfo.init_filed();
         }
         return typeinfos.get(tname);
     }
@@ -50,6 +54,10 @@ public class TypeInfo {
         if (typename == null) {
             throw new RuntimeException("Cannot create typeinfo for this class");
         }
+    }
+
+    private void init_filed() {
+        RefLikeType t = thistype;
         if (t instanceof RefType) {
             RefType rt = (RefType) t;
             SootClass sc = rt.getSootClass();
@@ -65,9 +73,10 @@ public class TypeInfo {
             }
         } else if (t instanceof ArrayType) {
             ArrayType at = (ArrayType) t;
-            Type subt = at.getArrayElementType();
+            Type subt = at.getElementType();
             if (subt instanceof RefLikeType) {
-                RefLikeType eletype = (RefLikeType) at.getArrayElementType();
+                RefLikeType eletype = (RefLikeType) subt;
+                // System.out.println("T and subt: " + at.toString() + " " + subt.toString() + " " + Boolean.toString(eletype instanceof ArrayType));
                 fields.put("#arrayvalue", getTypeInfo(eletype));
             }
         }
