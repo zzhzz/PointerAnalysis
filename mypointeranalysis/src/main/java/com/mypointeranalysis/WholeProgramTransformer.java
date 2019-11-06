@@ -28,7 +28,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		v.setName(method_name + " " + v_name + "||| " + field_name);
 	}
 
-	private Map<Unit, MethodOrMethodContext> callerUnits = new HashMap<>();
+	private Map<Unit, List<MethodOrMethodContext> > callerUnits = new HashMap<>();
 	private TreeMap<Integer, String> queries = new TreeMap<>();
 	private Map<SootMethod, Integer> call_times = new HashMap<>();
 	private Anderson anderson = new Anderson();
@@ -54,6 +54,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	private class Operands {
 	    String name;
+	    List<String> names = new ArrayList<>();
 		Operands(Local loc, String method_name) {
 			Local temp = (Local) loc.clone();
 			change_name(temp, method_name);
@@ -75,72 +76,86 @@ public class WholeProgramTransformer extends SceneTransformer {
 			String clinit_name = staticFieldRef.getField().getDeclaringClass().getMethodByName("<clinit>").toString();
 			this.name = clinit_name + " " + times + " " + staticFieldRef.toString();
 		}
-		Operands(InvokeExpr invokeExpr, Unit u, String method_name) {
-			this.name = process_invoke(u, method_name);
+		Operands(String s){
+			this.name = s;
 		}
 		String getName() {
 			return name;
 		}
 	}
 
-	private String process_invoke(Unit u, String method_name){
+	private List<String> process_invoke(Unit u, String method_name){
 		InvokeExpr ie = null;
-		String return_var = "";
 	    if(u instanceof InvokeStmt) {
 			ie = ((InvokeStmt) u).getInvokeExpr();
 		} else if(u instanceof AssignStmt) {
 	    	ie = (InvokeExpr) ((AssignStmt) u).getRightOp();
 		}
+		List<String> return_names = new ArrayList<>();
 		if (ie.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void alloc(int)>")) {
 			allocId = ((IntConstant)ie.getArgs().get(0)).value;
 		} else if (ie.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")) {
 			int id = ((IntConstant) ie.getArgs().get(0)).value;
 			Value val = ie.getArgs().get(1);
-			Operands op = process_variable(val, u, method_name);
-			queries.put(id, op.getName());
+			List<Operands> ops = process_variable(val, u, method_name);
+			queries.put(id, ops.get(0).getName());
 		} else if(callerUnits.containsKey(u)) {
-			SootMethod callee = callerUnits.get(u).method();
-			List<Local> local_list = callee.getActiveBody().getParameterLocals();
-			List<Value> args = ie.getArgs();
-			Integer times = call_times.get(callee);
-			String callee_name = callee.toString() + " " + (times + 1); // duplicate function call;
-			call_times.put(callee, times+1);
-			if(ie instanceof InstanceInvokeExpr) {
-				add_assign(callee.getActiveBody().getThisLocal(),
-						(Local) ((InstanceInvokeExpr) ie).getBase(),
-						callee_name, method_name);
+		    List<MethodOrMethodContext> list = callerUnits.get(u);
+		    for(MethodOrMethodContext m: list) {
+				SootMethod callee = m.method();
+				List<Local> local_list = callee.getActiveBody().getParameterLocals();
+				List<Value> args = ie.getArgs();
+				Integer times = call_times.get(callee);
+				String callee_name = callee.toString() + " " + (times + 1); // duplicate function call;
+				call_times.put(callee, times + 1);
+				if (ie instanceof InstanceInvokeExpr) {
+					add_assign(callee.getActiveBody().getThisLocal(),
+							(Local) ((InstanceInvokeExpr) ie).getBase(),
+							callee_name, method_name);
+				}
+				for (int i = 0; i < args.size(); i++) {
+					if (args.get(i) instanceof Local) {
+						add_assign(local_list.get(i), (Local) args.get(i), callee_name, method_name);
+					}
+				}
+				dfs_ongraph(m.method());
+				if (ie instanceof InstanceInvokeExpr) {
+					add_assign((Local) ((InstanceInvokeExpr) ie).getBase(),
+							callee.getActiveBody().getThisLocal(),
+							method_name, callee_name);
+				}
+				for (int i = 0; i < args.size(); i++) {
+					if (args.get(i) instanceof Local) {
+						add_assign((Local) args.get(i), local_list.get(i), method_name, callee_name);
+					}
+				}
+				return_names.add(callee_name + " return");
 			}
-			for(int i = 0; i < args.size(); i++){
-				add_assign(local_list.get(i), (Local) args.get(i), callee_name, method_name);
-			}
-			dfs_ongraph(callerUnits.get(u).method());
-			if(ie instanceof InstanceInvokeExpr){
-				add_assign((Local) ((InstanceInvokeExpr) ie).getBase(),
-						callee.getActiveBody().getThisLocal(),
-						method_name, callee_name);
-			}
-			for(int i = 0; i < args.size(); i++){
-				add_assign((Local) args.get(i), local_list.get(i), method_name, callee_name);
-			}
-			return callee_name + " return";
 		}
-		return "";
+		return return_names;
 	}
 
-	private Operands process_variable(Value v, Unit u, String method_name) {
-		Operands op = null;
+	private List<Operands> process_variable(Value v, Unit u, String method_name) {
+		List<Operands> list = new ArrayList<>();
 		if (v instanceof InstanceFieldRef) {
-			op = new Operands((InstanceFieldRef) v, method_name);
+			list.add(new Operands((InstanceFieldRef) v, method_name));
 		} else if (v instanceof Local) {
-			op = new Operands((Local) v, method_name);
+			list.add(new Operands((Local) v, method_name));
 		} else if (v instanceof ArrayRef) {
-			op = new Operands((ArrayRef) v, method_name);
+			list.add(new Operands((ArrayRef) v, method_name));
 		} else if (v instanceof StaticFieldRef) {
-			op = new Operands((StaticFieldRef) v);
+			list.add(new Operands((StaticFieldRef) v));
 		} else if (v instanceof InvokeExpr) {
-			op = new Operands((InvokeExpr)v, u, method_name);
+		    List<String> return_names = process_invoke(u, method_name);
+		    for(String name: return_names){
+		    	list.add(new Operands(name));
+			}
+		} else if (v instanceof CastExpr) {
+		    CastExpr castExpr = (CastExpr) v;
+		    Value val = castExpr.getOp();
+		    list.addAll(process_variable(val, u, method_name));
 		}
-		return op;
+		return list;
 	}
 
 	private void dfs_ongraph(SootMethod method){
@@ -156,9 +171,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 				if (u instanceof ReturnStmt) {
 					ReturnStmt stmt = (ReturnStmt) u;
 					Value return_var = stmt.getOp();
-					Operands op = process_variable(return_var, u, method_name);
+					List<Operands> ops = process_variable(return_var, u, method_name);
 					String return_name = method_name + " return";
-					anderson.addAssignConstraint(op.getName(), return_name, 0);
+					for(Operands op: ops) {
+						anderson.addAssignConstraint(op.getName(), return_name, 0);
+					}
 				}
 				if (u instanceof DefinitionStmt) {
 				    DefinitionStmt def_stmt = (DefinitionStmt) u;
@@ -175,14 +192,20 @@ public class WholeProgramTransformer extends SceneTransformer {
 					} else if (def_stmt.getLeftOp() instanceof Local && def_stmt.getRightOp() instanceof Local) {
 						add_assign((Local) def_stmt.getLeftOp(), (Local) def_stmt.getRightOp(), method_name, method_name);
 					} else {
-						Operands leftop = null, rightop = null;
-						leftop = process_variable(def_stmt.getLeftOp(), u, method_name);
-						rightop = process_variable(def_stmt.getRightOp(), u, method_name);
-						if (leftop != null && rightop != null) {
-							if(def_stmt.getLeftOp() instanceof InstanceFieldRef && def_stmt.getRightOp() instanceof  Local){
-								anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 1);
-							} else {
-								anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 0);
+						List<Operands> leftops, rightops;
+						leftops = process_variable(def_stmt.getLeftOp(), u, method_name);
+						rightops = process_variable(def_stmt.getRightOp(), u, method_name);
+
+						for(Operands leftop: leftops){
+							for(Operands rightop: rightops){
+								if (leftop != null && rightop != null) {
+									if(def_stmt.getLeftOp() instanceof InstanceFieldRef && def_stmt.getRightOp() instanceof  Local){
+										anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 1);
+									} else {
+										anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 0);
+									}
+								}
+
 							}
 						}
 					}
@@ -200,7 +223,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 			String src_name = edge.getSrc().method().getDeclaringClass().getName(),
 					dst_name = edge.getTgt().method().getDeclaringClass().getName();
 			if(isInProject(src_name) && isInProject(dst_name)) {
-			    callerUnits.put(edge.srcUnit(), edge.getTgt().method());
+				if(!callerUnits.containsKey(edge.srcUnit())){
+				    callerUnits.put(edge.srcUnit(), new ArrayList<MethodOrMethodContext>());
+				}
+				callerUnits.get(edge.srcUnit()).add(edge.getTgt().method());
 			    call_times.put(edge.getTgt().method(), 0);
 			}
 		}
