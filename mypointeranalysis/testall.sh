@@ -7,8 +7,9 @@ mvn compile
 
 run_program () {
     echo TEST ${1}
-    java -cp $CLASSPATH com.mypointeranalysis.MyPointerAnalysis ../code test.${1}
+    java -cp $CLASSPATH com.mypointeranalysis.MyPointerAnalysis ../code test.${1} > run.txt
     cp result.txt result.${1}.txt
+    cp run.txt run.${1}.txt
 }
 
 run_program ArrayTest
