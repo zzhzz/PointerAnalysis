@@ -93,7 +93,7 @@ public class Anderson {
 			}
 		}
 	}
-	TreeSet<Integer> getPointsToSet(Local local) {
-		return pts.get(local.toString());
+	TreeSet<Integer> getPointsToSet(String local) {
+		return pts.get(local);
 	}
 }
