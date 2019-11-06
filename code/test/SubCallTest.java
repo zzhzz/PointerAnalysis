@@ -26,7 +26,7 @@ public class SubCallTest extends A {
         if(args.length > 100) {
             a2 = new SubCallTest();
         }
-        B b3 = a.id(b1);
+        B b3 = a2.id(b1);
         BenchmarkN.test(2, b3);
     }
 }
