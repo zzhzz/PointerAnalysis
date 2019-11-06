@@ -433,8 +433,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 				ThrowStmt ts = (ThrowStmt) u;
 				Value v = ts.getOp();
 				if (v instanceof Local) {
-					anderson.addAssignConstraint_intra_to_static(sm_name, Anderson.EXCEPTION_LOCAL,
-							getLocalName((Local) v));
+					anderson.addAssignConstraint_intra_to_static(sm_name,
+							getLocalName((Local) v), Anderson.EXCEPTION_LOCAL);
 				} else {
 					MyOutput.myassert(false);
 				}
