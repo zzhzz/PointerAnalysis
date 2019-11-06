@@ -34,7 +34,7 @@ public class FieldSensitivity {
     assign(a, c);
     B d = c.f;
 
-    BenchmarkN.test(1, d);
+    BenchmarkN.test(1, d); // {1}
   }
   
   public void test2() {
@@ -48,8 +48,8 @@ public class FieldSensitivity {
     A a2 = new A();
     a1.f = b;
     a2.f = c;
-    BenchmarkN.test(2, a1.f);
-    BenchmarkN.test(3, a2.f);
+    BenchmarkN.test(2, a1.f); // {5}
+    BenchmarkN.test(3, a2.f); // {6}
   }
   
 

@@ -39,10 +39,14 @@ public class TypeInfo {
         if(child.isClass() && parent.isClass()) {
             SootClass scc = ((RefType)child.thistype).getSootClass();
             SootClass scp = ((RefType)parent.thistype).getSootClass();
-            return Scene.v().getActiveHierarchy().isClassSubclassOf(scc, scp);
+            return Scene.v().getFastHierarchy().canStoreClass(scc, scp);
         } else {
             return getTypeName(child.thistype).equals(getTypeName(parent.thistype));
         }
+    }
+
+    public static TypeInfo getClassTypeByName(String name) {
+        return TypeInfo.getTypeInfo(RefType.v(name));
     }
 
     TypeInfo(RefLikeType t) {
@@ -76,7 +80,7 @@ public class TypeInfo {
             if (subt instanceof RefLikeType) {
                 RefLikeType eletype = (RefLikeType) subt;
                 // System.out.println("T and subt: " + at.toString() + " " + subt.toString() + " " + Boolean.toString(eletype instanceof ArrayType));
-                fields.put("#arrayvalue", getTypeInfo(eletype));
+                fields.put(Anderson.ARRAY_FIELD, getTypeInfo(eletype));
             }
         }
     }

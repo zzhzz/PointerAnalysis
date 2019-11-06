@@ -2,170 +2,315 @@ package com.mypointeranalysis;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import soot.Local;
 
-class NewConstraint {
-	Local to;
-	int allocId;
+import soot.RefLikeType;
+import soot.Scene;
 
-	NewConstraint(int allocId, Local to) {
-		this.allocId = allocId;
-		this.to = to;
+class Pointer {
+	private TypeInfo t;
+	private Set<Integer> pointto;
+	private Anderson anderson;
+
+	Pointer(Anderson anderson, TypeInfo t) {
+		this.anderson = anderson;
+		this.t = t;
+		this.pointto = new TreeSet<>();
+	}
+
+	public boolean addAll(Pointer pt) {
+		boolean flag = false;
+		for(int i: pt.pointto) {
+			if(addOne(i)) {
+				flag = true;
+			}
+		}
+		return flag;
+	}
+
+	public boolean addOne(int i) {
+		TypeInfo tf = anderson.heapObjects.get(i).t;
+		if(!TypeInfo.canContain(tf, t)) {
+			return false;
+		} else {
+			return pointto.add(i);
+		}
+	}
+
+	public Set<Integer> getAll() {
+		return pointto;
 	}
 }
 
 class HeapObject {
 	int allocid;
 	TypeInfo t;
-	Map<String, Set<Integer>> fields;
+	Anderson anderson;
+	Map<String, Pointer> fields;
 
-	HeapObject(TypeInfo t, int allocid) {
+	HeapObject(Anderson anderson, TypeInfo t, int allocid) {
+		this.anderson = anderson;
 		this.t = t;
 		this.allocid = allocid;
-		fields = new HashMap<String, Set<Integer>>();
+		fields = new HashMap<String, Pointer>();
 		for (Map.Entry<String, TypeInfo> e : t.getFields()) {
-			fields.put(e.getKey(), new HashSet<Integer>());
+			fields.put(e.getKey(), new Pointer(anderson, e.getValue()));
 		}
+	}
+
+	Pointer getField(String name) {
+		return fields.get(name);
+	}
+
+	boolean hasField(String name) {
+		return fields.containsKey(name);
+	}
+
+	boolean addToField(String name, Pointer inputs) {
+		if(fields.containsKey(name)) {
+			return fields.get(name).addAll(inputs);
+		} else {
+			return false;
+		}
+	}
+
+	public int getAllocid() {
+		return allocid;
 	}
 }
 
-class LocalPointer {
-	TypeInfo t;
-	Set<Integer> pointto;
+class UnknownHeapObject extends HeapObject {
+	UnknownHeapObject(Anderson anderson, int allocid) {
+		super(anderson, TypeInfo.getTypeInfo((RefLikeType)Scene.v().getType("java.lang.Object[]")), allocid);
+	}
 
-	LocalPointer(TypeInfo t) {
-		this.t = t;
-		pointto = new TreeSet<Integer>();
+	@Override
+	boolean hasField(String name) {
+		return true;
+	}
+
+	@Override
+	Pointer getField(String name) {
+		return super.getField(Anderson.ARRAY_FIELD);
+	}
+
+	@Override
+	boolean addToField(String name, Pointer inputs) {
+		return super.addToField(Anderson.ARRAY_FIELD, inputs);
+	}
+}
+
+// class LocalPointer {
+// 	TypeInfo t;
+// 	Pointer pointto;
+// 	Anderson anderson;
+
+// 	LocalPointer(Anderson anderson, TypeInfo t) {
+// 		this.t = t;
+// 		this.anderson = anderson;
+// 		pointto = new Pointer(anderson, t);
+// 	}
+// }
+
+class AssignConstraint {
+	Anderson anderson;
+	boolean from_field, to_field, enabled;
+	String from, frombase, to, tobase;
+
+	private AssignConstraint() {
+	}
+
+	public static AssignConstraint NewL2L(Anderson anderson, String from, String to) {
+		AssignConstraint result = new AssignConstraint();
+		result.anderson = anderson;
+		result.from_field = false;
+		result.to_field = false;
+		result.enabled = true;
+		result.from = null;
+		result.frombase = from;
+		result.to = null;
+		result.tobase = to;
+		return result;
+	}
+
+	public static AssignConstraint NewF2L(Anderson anderson, String frombase, String from, String to) {
+		AssignConstraint result = new AssignConstraint();
+		result.anderson = anderson;
+		result.from_field = true;
+		result.to_field = false;
+		result.enabled = true;
+		result.from = from;
+		result.frombase = frombase;
+		result.to = null;
+		result.tobase = to;
+		return result;
+	}
+
+	public static AssignConstraint NewL2F(Anderson anderson, String from, String tobase, String to) {
+		AssignConstraint result = new AssignConstraint();
+		result.anderson = anderson;
+		result.from_field = false;
+		result.to_field = true;
+		result.enabled = true;
+		result.from = null;
+		result.frombase = from;
+		result.to = to;
+		result.tobase = tobase;
+		return result;
+	}
+
+	public void check() {
+		// System.out.println(toString());
+
+		boolean from_unknown, to_unknown;
+		from_unknown = !anderson.locals.containsKey(frombase);
+		to_unknown = !anderson.locals.containsKey(tobase);
+		if (from_unknown && to_unknown) {
+			enabled = false;
+		} else if (from_unknown && !to_unknown) {
+			from_field = false;
+			from = null;
+			frombase = Anderson.UNKNOWN_LOCAL;
+		} else if (!from_unknown && to_unknown) {
+			to_field = false;
+			to = null;
+			tobase = Anderson.UNKNOWN_LOCAL;
+		} else if (!from_unknown && !to_unknown) {
+		}
+
+		// System.out.println(toString());
+	}
+
+	public boolean UpdatePointto() {
+		if (!enabled)
+			return false;
+
+		if (!from_field && !to_field) {
+			return UpdatePointto_l2l();
+		} else if (from_field && !to_field) {
+			return UpdatePointto_f2l();
+		} else if (!from_field && to_field) {
+			return UpdatePointto_l2f();
+		} else {
+			MyOutput.myassert(false);
+			return false;
+		}
+	}
+
+	boolean UpdatePointto_l2l() {
+		Pointer f = anderson.locals.get(frombase);
+		Pointer t = anderson.locals.get(tobase);
+		return t.addAll(f);
+	}
+
+	boolean UpdatePointto_f2l() {
+		Pointer f = anderson.locals.get(frombase);
+		Pointer t = anderson.locals.get(tobase);
+		boolean flag = false;
+		for (int o : f.getAll()) {
+			HeapObject ho = anderson.heapObjects.get(o);
+			if(ho.hasField(from)) {
+				if(t.addAll(ho.getField(from)))
+					flag = true;
+			}
+			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
+			// if (fields.containsKey(from)) {
+			// 	if (t.pointto.addAll(fields.get(from))) {
+			// 		flag = true;
+			// 	}
+			// }
+		}
+		return flag;
+	}
+
+	boolean UpdatePointto_l2f() {
+		Pointer f = anderson.locals.get(frombase);
+		Pointer t = anderson.locals.get(tobase);
+		boolean flag = false;
+		for (int o : t.getAll()) {
+			HeapObject ho = anderson.heapObjects.get(o);
+			if(ho.hasField(to)) {
+				if(ho.addToField(to, f)) {
+					flag = true;
+				}
+			}
+			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
+			// if (fields.containsKey(to)) {
+			// 	if (fields.get(to).addAll(f.pointto)) {
+			// 		flag = true;
+			// 	}
+			// }
+		}
+		return flag;
+	}
+
+	@Override
+	public String toString() {
+		if (!enabled)
+			return "[Disabled]";
+
+		if (!from_field && !to_field) {
+			return "[" + tobase + " = " + frombase + "]";
+		} else if (from_field && !to_field) {
+			return "[" + tobase + " = " + frombase + "." + from + "]";
+		} else if (!from_field && to_field) {
+			return "[" + tobase + "." + to + "=" + frombase + "]";
+		} else {
+			MyOutput.myassert(false);
+			return "[Error]";
+		}
 	}
 }
 
 public class Anderson {
+	public static final String UNKNOWN_LOCAL = "@unknown";
+	public static final String UNKNOWN_TYPE = "java.lang.Object";
+	public static final String EXCEPTION_LOCAL = "@caughtexception";
+	public static final String EXCEPTION_TYPE = "java.lang.Exception";
+	public static final String RET_LOCAL = "@ret";
+	public static final String THIS_LOCAL = "@this";
+	public static final String ARRAY_FIELD = "#arrayvalue";
+	public static final String PARAMETER_LOCAL_PREFIX = "@parameter";
 
-	interface AssignConstraintUpdate {
-		boolean UpdatePointto();
+	public static String parameterLocalName(int i) {
+		return Anderson.PARAMETER_LOCAL_PREFIX + Integer.toString(i);
 	}
 
-	class AssignConstraint implements AssignConstraintUpdate {
-		String from, to;
-		boolean enabled;
+	private List<AssignConstraint> assignConstraintList;
+	private Map<String, List<Integer>> funccopys;
 
-		AssignConstraint(String from, String to) {
-			this.from = from;
-			this.to = to;
-			enabled = true;
-			// System.out.println(toString());
-		}
+	List<HeapObject> heapObjects;
+	Map<String, Pointer> locals;
 
-		@Override
-		public boolean UpdatePointto() {
-			if (!locals.containsKey(from) || !locals.containsKey(to)) {
-				enabled = false;
-				MyOutput.myprint("Warning: Disable Rule " + toString());
-			}
-			if (!enabled)
-				return false;
-			LocalPointer f = locals.get(from);
-			LocalPointer t = locals.get(to);
-			return t.pointto.addAll(f.pointto);
-		}
+	int uho_index;
 
-		@Override
-		public String toString() {
-			return "[" + to + "=" + from + "]";
-		}
+	public Anderson() {
+		assignConstraintList = new ArrayList<>();
+		funccopys = new HashMap<>();
+		heapObjects = new ArrayList<>();
+		locals = new HashMap<>();
+
+		addStatic(UNKNOWN_LOCAL, TypeInfo.getClassTypeByName(UNKNOWN_TYPE));
+		addStatic(EXCEPTION_LOCAL, TypeInfo.getClassTypeByName(EXCEPTION_TYPE));
+		UnknownHeapObject uho = new UnknownHeapObject(this, 0);
+		uho_index = heapObjects.size();
+		heapObjects.add(uho);
+		locals.get(UNKNOWN_LOCAL).addOne(uho_index);
 	}
 
-	class AssignConstraintFromField implements AssignConstraintUpdate {
-		String frombase, from, to;
-		boolean enabled;
-
-		AssignConstraintFromField(String frombase, String from, String to) {
-			this.from = from;
-			this.to = to;
-			this.frombase = frombase;
-			enabled = true;
-			// System.out.println(toString());
-		}
-
-		@Override
-		public boolean UpdatePointto() {
-			if (!locals.containsKey(frombase) || !locals.containsKey(to)) {
-				enabled = false;
-				MyOutput.myprint("Warning: Disable Rule " + toString());
-			}
-			if (!enabled)
-				return false;
-			LocalPointer f = locals.get(frombase);
-			LocalPointer t = locals.get(to);
-			boolean flag = false;
-			for (int o : f.pointto) {
-				Map<String, Set<Integer>> fields = heapObjects.get(o).fields;
-				if (fields.containsKey(from)) {
-					if (t.pointto.addAll(fields.get(from))) {
-						flag = true;
-					}
-				}
-			}
-			return flag;
-		}
-
-		@Override
-		public String toString() {
-			return "[" + to + "=" + frombase + "." + from + "]";
-		}
+	private boolean updateUnknown() {
+		boolean flag = false;
+		Pointer l = locals.get(UNKNOWN_LOCAL);
+		Pointer h = heapObjects.get(uho_index).getField(ARRAY_FIELD);
+		if(l.addAll(h))
+			flag = true;
+		if(h.addAll(l))
+			flag = true;
+		return flag;
 	}
-
-	class AssignConstraintToField implements AssignConstraintUpdate {
-		String tobase, from, to;
-		boolean enabled;
-
-		AssignConstraintToField(String from, String tobase, String to) {
-			this.from = from;
-			this.to = to;
-			this.tobase = tobase;
-			enabled = true;
-			// System.out.println(toString());
-		}
-
-		@Override
-		public boolean UpdatePointto() {
-			if (!locals.containsKey(from) || !locals.containsKey(tobase)) {
-				enabled = false;
-				MyOutput.myprint("Warning: Disable Rule " + toString());
-			}
-			if (!enabled)
-				return false;
-			LocalPointer f = locals.get(from);
-			LocalPointer t = locals.get(tobase);
-			boolean flag = false;
-			for (int o : t.pointto) {
-				Map<String, Set<Integer>> fields = heapObjects.get(o).fields;
-				if (fields.containsKey(to)) {
-					if (fields.get(to).addAll(f.pointto)) {
-						flag = true;
-					}
-				}
-			}
-			return flag;
-		}
-
-		@Override
-		public String toString() {
-			return "[" + tobase + "." + to + "=" + from + "]";
-		}
-	}
-
-	private List<AssignConstraintUpdate> assignConstraintList = new ArrayList<>();
-
-	Map<String, List<Integer>> funccopys = new HashMap<>();
-
-	List<HeapObject> heapObjects = new ArrayList<>();
-	Map<String, LocalPointer> locals = new HashMap<>();
 
 	private static String localName(String funcname, int call_id, String local) {
 		return funcname + "!!" + Integer.toString(call_id) + "!!" + local;
@@ -183,14 +328,14 @@ public class Anderson {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
 			assignConstraintList
-					.add(new AssignConstraint(localName(method, cpyid, from), localName(method, cpyid, to)));
+					.add(AssignConstraint.NewL2L(this, localName(method, cpyid, from), localName(method, cpyid, to)));
 		}
 	}
 
 	public void addAssignConstraint_intra_from_filed(String method, String from_base, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(new AssignConstraintFromField(localName(method, cpyid, from_base), from,
+			assignConstraintList.add(AssignConstraint.NewF2L(this, localName(method, cpyid, from_base), from,
 					localName(method, cpyid, to)));
 		}
 	}
@@ -198,22 +343,22 @@ public class Anderson {
 	public void addAssignConstraint_intra_to_field(String method, String from, String to_base, String to) {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(
-					new AssignConstraintToField(localName(method, cpyid, from), localName(method, cpyid, to_base), to));
+			assignConstraintList.add(AssignConstraint.NewL2F(this, localName(method, cpyid, from),
+					localName(method, cpyid, to_base), to));
 		}
 	}
 
 	public void addAssignConstraint_intra_from_static(String method, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(new AssignConstraint(from, localName(method, cpyid, to)));
+			assignConstraintList.add(AssignConstraint.NewL2L(this, from, localName(method, cpyid, to)));
 		}
 	}
 
 	public void addAssignConstraint_intra_to_static(String method, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(new AssignConstraint(localName(method, cpyid, from), to));
+			assignConstraintList.add(AssignConstraint.NewL2L(this, localName(method, cpyid, from), to));
 		}
 	}
 
@@ -221,8 +366,8 @@ public class Anderson {
 			String to) {
 		List<Integer> copyids = funccopys.get(method_to);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(
-					new AssignConstraint(localName(method_from, call_id_from, from), localName(method_to, cpyid, to)));
+			assignConstraintList.add(AssignConstraint.NewL2L(this, localName(method_from, call_id_from, from),
+					localName(method_to, cpyid, to)));
 		}
 	}
 
@@ -230,37 +375,41 @@ public class Anderson {
 			String to) {
 		List<Integer> copyids = funccopys.get(method_from);
 		for (int cpyid : copyids) {
-			assignConstraintList.add(
-					new AssignConstraint(localName(method_from, cpyid, from), localName(method_to, call_id_to, to)));
+			assignConstraintList.add(AssignConstraint.NewL2L(this, localName(method_from, cpyid, from),
+					localName(method_to, call_id_to, to)));
 		}
+	}
+
+	public boolean hasFunction(String method) {
+		return funccopys.containsKey(method);
 	}
 
 	public void addLocal(String method, String localname, TypeInfo t) {
 		List<Integer> copyids = funccopys.get(method);
 		// System.out.println("AddLocal: " + method);
 		for (int cpyid : copyids) {
-			locals.put(localName(method, cpyid, localname), new LocalPointer(t));
+			locals.put(localName(method, cpyid, localname), new Pointer(this, t));
 			// System.out.println("AddLocal: " + localName(method, cpyid, localname));
 		}
 		// int numlocals = locals.size();
 		// if (numlocals % 1000 == 0)
-			// System.out.println("NUMLOCAL: " + Integer.toString(numlocals));
+		// System.out.println("NUMLOCAL: " + Integer.toString(numlocals));
 	}
 
 	public void addNew(String method, String localname, int allocid, TypeInfo t) {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
 			int newheapid = heapObjects.size();
-			heapObjects.add(new HeapObject(t, allocid));
-			locals.get(localName(method, cpyid, localname)).pointto.add(newheapid);
+			heapObjects.add(new HeapObject(this, t, allocid));
+			locals.get(localName(method, cpyid, localname)).addOne(newheapid);
 		}
 		// int numlocals = heapObjects.size();
 		// if (numlocals % 1000 == 0)
-			// System.out.println("NUMHEAP: " + Integer.toString(numlocals));
+		// System.out.println("NUMHEAP: " + Integer.toString(numlocals));
 	}
 
 	public void addStatic(String name, TypeInfo t) {
-		locals.put(name, new LocalPointer(t));
+		locals.put(name, new Pointer(this, t));
 	}
 
 	public void addNewMultiArray(String method, String localname, int allocid, TypeInfo t, int depth) {
@@ -269,13 +418,19 @@ public class Anderson {
 
 	public void run() {
 		// System.out.println("RUN");
+		for (AssignConstraint acu : assignConstraintList) {
+			acu.check();
+		}
+
 		for (boolean flag = true; flag;) {
 			flag = false;
-			for (AssignConstraintUpdate acu : assignConstraintList) {
+			for (AssignConstraint acu : assignConstraintList) {
 				if (acu.UpdatePointto()) {
 					flag = true;
 				}
 			}
+			if(updateUnknown())
+				flag = true;
 		}
 	}
 
@@ -283,9 +438,8 @@ public class Anderson {
 		Set<Integer> results = new TreeSet<>();
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
-			// System.out.println(localName(method, cpyid, localname));
-			Set<Integer> heapids = locals.get(localName(method, cpyid, localname)).pointto;
-			for (int heapid : heapids) {
+			Pointer heapids = locals.get(localName(method, cpyid, localname));
+			for (int heapid : heapids.getAll()) {
 				results.add(heapObjects.get(heapid).allocid);
 			}
 		}
@@ -293,8 +447,9 @@ public class Anderson {
 	}
 
 	public void printall() {
-		for(Map.Entry<String, LocalPointer> p: locals.entrySet()) {
-			// System.out.println("Result: " + p.getKey() + ":" + p.getValue().pointto.toString());
+		for (Map.Entry<String, Pointer> p : locals.entrySet()) {
+			System.out.println("Result: " + p.getKey() + ":" +
+			p.getValue().getAll().toString());
 		}
 	}
 }

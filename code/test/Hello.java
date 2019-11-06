@@ -22,8 +22,8 @@ public class Hello {
     BenchmarkN.alloc(3);
     A c = new A();
     if (args.length > 1) a = b;
-    BenchmarkN.test(1, a); 
-    BenchmarkN.test(2, c); 
+    BenchmarkN.test(1, a);  // {1,2}
+    BenchmarkN.test(2, c);  // {3}
     System.out.println("Hello World!\n");
 
     main2();

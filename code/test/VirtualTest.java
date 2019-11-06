@@ -1,11 +1,13 @@
 package test;
 
+import benchmark.internal.BenchmarkN;
 import benchmark.objects.*;
 
 public class VirtualTest
 {
     public VirtualTest a, b, c, d, e, f;
     public static void main(String[] args) {
+        // BenchmarkN.
         P p = new P(null);
         Q q = p;
         benchmark.internal.BenchmarkN.test(123, p);
