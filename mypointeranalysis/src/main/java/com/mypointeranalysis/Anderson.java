@@ -11,9 +11,9 @@ import soot.Local;
 class AssignConstraint {
 	String from, to;
 	int local_to_filed;
-	AssignConstraint(Local from, Local to, int local_to_filed) {
-		this.from = from.toString();
-		this.to = to.toString();
+	AssignConstraint(String from, String to, int local_to_filed) {
+	    this.from = from;
+	    this.to = to;
 		this.local_to_filed = local_to_filed;
 	}
 }
@@ -21,9 +21,9 @@ class AssignConstraint {
 class NewConstraint {
 	String to;
 	int allocId;
-	NewConstraint(int allocId, Local to) {
+	NewConstraint(int allocId, String to) {
 		this.allocId = allocId;
-		this.to = to.toString();
+		this.to = to;
 	}
 }
 
@@ -32,11 +32,11 @@ public class Anderson {
 	private List<NewConstraint> newConstraintList = new ArrayList<NewConstraint>();
 	Map<String, TreeSet<Integer>> pts = new HashMap<String, TreeSet<Integer>>();
 	Map<Integer, TreeSet<String>> pts_inverse = new HashMap<>();
-	void addAssignConstraint(Local from, Local to, int local_to_field) {
+	void addAssignConstraint(String from, String to, int local_to_field) {
 		// System.out.println(to + " = " + from);
 		assignConstraintList.add(new AssignConstraint(from, to, local_to_field));
 	}
-	void addNewConstraint(int alloc, Local to) {
+	void addNewConstraint(int alloc, String to) {
 		// System.out.println(to + " = " + alloc);
 		newConstraintList.add(new NewConstraint(alloc, to));		
 	}
@@ -76,8 +76,6 @@ public class Anderson {
 						TreeSet<String> locals = pts_inverse.get(addr);
 						for(String names: locals){
 							String nname = names + "||| " + field_name;
-							System.out.println(nname);
-							System.out.println(ac.to);
 							if(!pts.containsKey(nname)){
 								pts.put(nname, new TreeSet<Integer>());
 							}
@@ -94,11 +92,6 @@ public class Anderson {
 
 			}
 		}
-		/*
-		for(String var : pts.keySet()){
-			System.out.println(var + " " + pts.get(var));
-		}
-		 */
 	}
 	TreeSet<Integer> getPointsToSet(Local local) {
 		return pts.get(local.toString());

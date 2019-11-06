@@ -5,8 +5,6 @@ import java.util.Map.Entry;
 
 import soot.*;
 import soot.jimple.*;
-import soot.jimple.internal.JInstanceFieldRef;
-import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.toolkits.callgraph.ReachableMethods;
@@ -44,29 +42,40 @@ public class WholeProgramTransformer extends SceneTransformer {
 		    right_temp = (Local) right.clone();
 			change_name(left_temp, field.toString(), left_name);
 			change_name(right_temp, field.toString(), right_name);
-			anderson.addAssignConstraint(right_temp, left_temp, 0);
+			anderson.addAssignConstraint(right_temp.toString(), left_temp.toString(), 0);
 		}
 		left_temp = (Local) left.clone();
 		right_temp = (Local) right.clone();
 		change_name(left_temp, left_name);
 		change_name(right_temp, right_name);
-		anderson.addAssignConstraint(right_temp, left_temp, 0);
+		anderson.addAssignConstraint(right_temp.toString(), left_temp.toString(), 0);
 	}
 
 	private class Operands {
-	    Local local;
+	    String name;
 		Operands(Local loc, String method_name) {
 			Local temp = (Local) loc.clone();
 			change_name(temp, method_name);
-			this.local = temp;
+			this.name = temp.toString();
 		}
 		Operands(InstanceFieldRef fieldRef, String method_name){
 			Local temp = (Local) fieldRef.getBase().clone();
 			change_name(temp, fieldRef.getField().toString(), method_name);
-			this.local = temp;
+			this.name = temp.toString();
 		}
-		Local getLocal() {
-			return local;
+		Operands(ArrayRef arrayRef, String method_name) {
+			Local base = (Local) arrayRef.getBase().clone();
+			change_name(base, method_name);
+			this.name = base.toString();
+		}
+		Operands(StaticFieldRef staticFieldRef){
+		    SootMethod static_init = staticFieldRef.getField().getDeclaringClass().getMethodByName("<clinit>");
+			Integer times = call_times.get(static_init);
+			String clinit_name = staticFieldRef.getField().getDeclaringClass().getMethodByName("<clinit>").toString();
+			this.name = clinit_name + " " + times + " " + staticFieldRef.toString();
+		}
+		String getName() {
+			return name;
 		}
 	};
 
@@ -80,20 +89,32 @@ public class WholeProgramTransformer extends SceneTransformer {
 		if (method.hasActiveBody()) {
 			for (Unit u : method.getActiveBody().getUnits()) {
 				if (u instanceof InvokeStmt) {
+					// System.out.println(u);
 					InvokeExpr ie = ((InvokeStmt) u).getInvokeExpr();
 					if (ie.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void alloc(int)>")) {
 						allocId = ((IntConstant)ie.getArgs().get(0)).value;
 					} else if (ie.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")) {
-						Local v = (Local) ie.getArgs().get(1).clone();
-						change_name(v, method_name);
-						int id = ((IntConstant)ie.getArgs().get(0)).value;
-						queries.put(id, v);
+					    Value val = ie.getArgs().get(1);
+					    Local v = null;
+					    if(val instanceof Local) {
+							v = (Local) val.clone();
+						}
+					    if(val instanceof ArrayRef) {
+					    	ArrayRef ref = (ArrayRef) val.clone();
+					    	v = (Local) ref.getBase().clone();
+						}
+					    if(v != null) {
+							change_name(v, method_name);
+							int id = ((IntConstant) ie.getArgs().get(0)).value;
+							System.out.println("Query: " + id + " " + v);
+							queries.put(id, v);
+						}
 					} else if(callerUnits.containsKey(u)) {
 						SootMethod callee = callerUnits.get(u).method();
 						List<Local> local_list = callee.getActiveBody().getParameterLocals();
 						List<Value> args = ie.getArgs();
 						Integer times = call_times.get(callee);
-						String callee_name = callee.toString() + " " + (times + 1); // dumplicate function call;
+						String callee_name = callee.toString() + " " + (times + 1); // duplicate function call;
 						call_times.put(callee, times+1);
 						if(ie instanceof InstanceInvokeExpr) {
 							add_assign(callee.getActiveBody().getThisLocal(),
@@ -119,15 +140,26 @@ public class WholeProgramTransformer extends SceneTransformer {
 					if (def_stmt.getRightOp() instanceof NewExpr) {
 						Local lop = (Local) ((DefinitionStmt) u).getLeftOp().clone();
 						change_name(lop, method_name);
-						anderson.addNewConstraint(allocId, lop);
+						anderson.addNewConstraint(allocId, lop.toString());
+						allocId = 0;
+					} else if (def_stmt.getRightOp() instanceof NewArrayExpr) {
+						Local lop = (Local) (((DefinitionStmt) u).getLeftOp().clone());
+						change_name(lop, method_name);
+						anderson.addNewConstraint(allocId, lop.toString());
+						allocId = 0;
 					} else if (def_stmt.getLeftOp() instanceof Local && def_stmt.getRightOp() instanceof Local) {
 						add_assign((Local) def_stmt.getLeftOp(), (Local) def_stmt.getRightOp(), method_name, method_name);
 					} else {
+						//System.out.println(u + " " + ((DefinitionStmt) u).getRightOp().getClass());
 						Operands leftop, rightop;
 						if (def_stmt.getLeftOp() instanceof InstanceFieldRef) {
 							leftop = new Operands((InstanceFieldRef) def_stmt.getLeftOp(), method_name);
 						} else if (def_stmt.getLeftOp() instanceof Local) {
 							leftop = new Operands((Local) def_stmt.getLeftOp(), method_name);
+						} else if (def_stmt.getLeftOp() instanceof ArrayRef) {
+							leftop = new Operands((ArrayRef) def_stmt.getLeftOp(), method_name);
+						} else if (def_stmt.getLeftOp() instanceof StaticFieldRef) {
+							leftop = new Operands((StaticFieldRef) def_stmt.getLeftOp());
 						} else {
 							leftop = null;
 						}
@@ -135,14 +167,18 @@ public class WholeProgramTransformer extends SceneTransformer {
 							rightop = new Operands((InstanceFieldRef) def_stmt.getRightOp(), method_name);
 						} else if (def_stmt.getRightOp() instanceof Local) {
 							rightop = new Operands((Local) def_stmt.getRightOp(), method_name);
+						} else if (def_stmt.getRightOp() instanceof ArrayRef) {
+							rightop = new Operands((ArrayRef) def_stmt.getRightOp(), method_name);
+						} else if (def_stmt.getRightOp() instanceof StaticFieldRef) {
+							rightop = new Operands((StaticFieldRef) def_stmt.getRightOp());
 						} else {
 							rightop = null;
 						}
 						if (leftop != null && rightop != null) {
 							if(def_stmt.getLeftOp() instanceof InstanceFieldRef && def_stmt.getRightOp() instanceof  Local){
-								anderson.addAssignConstraint(rightop.getLocal(), leftop.getLocal(), 1);
+								anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 1);
 							} else {
-								anderson.addAssignConstraint(rightop.getLocal(), leftop.getLocal(), 0);
+								anderson.addAssignConstraint(rightop.getName(), leftop.getName(), 0);
 							}
 						}
 					}
@@ -166,14 +202,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 		}
 		ReachableMethods reachableMethods = Scene.v().getReachableMethods();
 		QueueReader<MethodOrMethodContext> qr = reachableMethods.listener();
-		while (qr.hasNext()) {
-			SootMethod sm = qr.next().method();
+		List<SootMethod> entrys = Scene.v().getEntryPoints();
+		for(SootMethod sm: entrys) {
 			if(!isInProject(sm.getDeclaringClass().getName())){
 				continue;
 			}
-			if(callGraph.isEntryMethod(sm)){
-			    dfs_ongraph(sm);
-			}
+			dfs_ongraph(sm);
 		}
 		anderson.run();
 		String answer = "";
@@ -181,7 +215,9 @@ public class WholeProgramTransformer extends SceneTransformer {
 			TreeSet<Integer> result = anderson.getPointsToSet(q.getValue());
 			answer += q.getKey().toString() + ":";
 			for (Integer i : result) {
-				answer += " " + i;
+				if(i > 0) {
+					answer += " " + i;
+				}
 			}
 			answer += "\n";
 		}
