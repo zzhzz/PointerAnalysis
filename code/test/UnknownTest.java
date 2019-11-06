@@ -19,8 +19,8 @@ public class UnknownTest {
         BenchmarkN.test(2, c);  // {3}
         System.out.println("Hello World!\n");
         ArrayList<Object> aobj = new ArrayList<>();
-        aobj.add(a);
-        aobj.add(b);
+        // aobj.add(a);
+        // aobj.add(b);
         A t = (A)aobj.get(1);
         A t2 = (A)aobj.get(1);
         BenchmarkN.alloc(4);

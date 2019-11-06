@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import soot.ArrayType;
 import soot.Kind;
 import soot.Local;
 import soot.MethodOrMethodContext;
@@ -85,7 +86,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 		// return false;
 		SootClass sc = sm.getDeclaringClass();
 		String packagename = sc.getPackageName();
-		return (sc.getName().equals("java.lang.Object") || packagename.startsWith("benchmark") || packagename.startsWith("test"));
+		return (sc.getName().equals("java.lang.Object") || packagename.startsWith("benchmark")
+				|| packagename.startsWith("test"));
 		// || consider_methods.contains(getMethodName(sm));
 	}
 
@@ -101,7 +103,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		return field.getSignature();
 	}
 
-	Anderson anderson = new Anderson();
+	Anderson anderson;
 	IdentityHashMap<Stmt, List<Invocation>> call_relation = new IdentityHashMap<>();
 	IdentityHashMap<SootMethod, Object> entries = new IdentityHashMap<>();
 
@@ -119,24 +121,26 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 		// Queue<SootMethod> search_queue = new ArrayDeque<>();
 		// for (SootMethod sm : ents) {
-		// 	if (shouldanalysis(sm)) {
-		// 		search_queue.add(sm);
-		// 	}
+		// if (shouldanalysis(sm)) {
+		// search_queue.add(sm);
+		// }
 		// }
 		// while (!search_queue.isEmpty()) {
-		// 	SootMethod cur = search_queue.remove();
-		// 	String cur_name = getMethodName(cur);
-		// 	if (!consider_methods.add(cur_name))
-		// 		continue;
-		// 	Iterator<Edge> edges = cg.edgesOutOf(cur);
-		// 	while (edges.hasNext()) {
-		// 		Edge e = edges.next();
-		// 		String kname = e.kind().name();
-		// 		if (kname.equals("VIRTUAL") || kname.equals("STATIC") || kname.equals("SPECIAL")
-		// 				|| kname.equals("INTERFACE") || kname.equals("FINALIZE") || kname.equals("CLINIT")) {
-		// 			search_queue.add(e.tgt());
-		// 		}
-		// 	}
+		// SootMethod cur = search_queue.remove();
+		// String cur_name = getMethodName(cur);
+		// if (!consider_methods.add(cur_name))
+		// continue;
+		// Iterator<Edge> edges = cg.edgesOutOf(cur);
+		// while (edges.hasNext()) {
+		// Edge e = edges.next();
+		// String kname = e.kind().name();
+		// if (kname.equals("VIRTUAL") || kname.equals("STATIC") ||
+		// kname.equals("SPECIAL")
+		// || kname.equals("INTERFACE") || kname.equals("FINALIZE") ||
+		// kname.equals("CLINIT")) {
+		// search_queue.add(e.tgt());
+		// }
+		// }
 		// }
 
 		int cur_call_id = 0;
@@ -152,8 +156,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 		while (edges.hasNext()) {
 			Edge e = edges.next();
 			// if (!shouldanalysis(e.src()) || !shouldanalysis(e.tgt()))
-			// 	continue;
-			if(!shouldanalysis(e.src()))
+			// continue;
+			if (!shouldanalysis(e.src()))
 				continue;
 			Kind k = e.kind();
 			String kname = k.name();
@@ -240,11 +244,11 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	void process_method(SootMethod sm) {
 		String sm_name = getMethodName(sm);
-		int allocid = 0;
+		int allocid = -1;
 
 		if (!shouldanalysis(sm))
 			return;
-		if(!anderson.hasFunction(sm_name))
+		if (!anderson.hasFunction(sm_name))
 			return;
 
 		process_class(sm.getDeclaringClass());
@@ -363,19 +367,24 @@ public class WholeProgramTransformer extends SceneTransformer {
 							NewArrayExpr nae = (NewArrayExpr) right;
 							RefLikeType t = nae.getBaseType().makeArrayType();
 							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
-							allocid = 0;
+							allocid = -1;
 						} else if (right instanceof NewExpr) {
 							NewExpr ne = (NewExpr) right;
 							RefLikeType t = ne.getBaseType();
 							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
-							allocid = 0;
+							allocid = -1;
 						} else if (right instanceof NewMultiArrayExpr) {
-							// NewMultiArrayExpr nmae = (NewMultiArrayExpr)right;
-							// nmae.getBaseType();
-							// anderson.addNew(sm_name, localleft_name, allocid);
-							allocid = 0;
+							NewMultiArrayExpr nmae = (NewMultiArrayExpr) right;
+							Type t = nmae.getBaseType();
+							for (int i = 0; i < nmae.getSizeCount() - 1; ++i) {
+								t = ((ArrayType) t).getElementType();
+							}
+							anderson.addNewMultiArray(sm_name, localleft_name, allocid,
+									TypeInfo.getTypeInfo((RefLikeType) t), nmae.getSizeCount());
+							allocid = -1;
 						} else if (right instanceof CaughtExceptionRef) {
-							anderson.addAssignConstraint_intra_from_static(sm_name, Anderson.EXCEPTION_LOCAL, localleft_name);
+							anderson.addAssignConstraint_intra_from_static(sm_name, Anderson.EXCEPTION_LOCAL,
+									localleft_name);
 						} else if (right instanceof ParameterRef) {
 							ParameterRef pr = (ParameterRef) right;
 							anderson.addAssignConstraint_intra(sm_name, Anderson.parameterLocalName(pr.getIndex()),
@@ -424,7 +433,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 				ThrowStmt ts = (ThrowStmt) u;
 				Value v = ts.getOp();
 				if (v instanceof Local) {
-					anderson.addAssignConstraint_intra_to_static(sm_name, Anderson.EXCEPTION_LOCAL, getLocalName((Local) v));
+					anderson.addAssignConstraint_intra_to_static(sm_name, Anderson.EXCEPTION_LOCAL,
+							getLocalName((Local) v));
 				} else {
 					MyOutput.myassert(false);
 				}
@@ -469,7 +479,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			builder.append(Integer.toString(tc.id));
 			builder.append(":");
 			for (int i : results) {
-				if (i != 0) {
+				if (i != -1) {
 					builder.append(" ");
 					builder.append(Integer.toString(i));
 				}
@@ -481,6 +491,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	@Override
 	protected void internalTransform(String phaseName, Map<String, String> options) {
+		anderson = new Anderson();
 		process_edges();
 
 		QueueReader<MethodOrMethodContext> qr = Scene.v().getReachableMethods().listener();

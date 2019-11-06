@@ -17,6 +17,8 @@ public class TypeInfo {
     static HashMap<String, TypeInfo> typeinfos = new HashMap<>();
 
     static TypeInfo getTypeInfo(RefLikeType t) {
+        if (t == null)
+            return null;
         // System.out.println(t.toString());
         String tname = getTypeName(t);
         if (!typeinfos.containsKey(tname)) {
@@ -35,14 +37,31 @@ public class TypeInfo {
         return t.toString();
     }
 
+    private static SootClass unknownclass;
+
+    static SootClass getUnknownClass() {
+        if (unknownclass == null) {
+            unknownclass = new SootClass(Anderson.UNKNOWN_CLASS);
+            SootField f = new SootField(Anderson.UNKNOWN_FIELD, RefType.v(Scene.v().getSootClass("java.lang.Object")));
+            unknownclass.addField(f);
+        }
+        return unknownclass;
+    }
+
     static boolean canContain(TypeInfo child, TypeInfo parent) {
-        if(child.isClass() && parent.isClass()) {
-            SootClass scc = ((RefType)child.thistype).getSootClass();
-            SootClass scp = ((RefType)parent.thistype).getSootClass();
+        if (child.isClass() && parent.isClass()) {
+            SootClass scc = ((RefType) child.thistype).getSootClass();
+            SootClass scp = ((RefType) parent.thistype).getSootClass();
+            if (scc.getName().equals(Anderson.UNKNOWN_CLASS) || scp.getName().equals(Anderson.UNKNOWN_CLASS))
+                return true;
             return Scene.v().getFastHierarchy().canStoreClass(scc, scp);
         } else {
             return getTypeName(child.thistype).equals(getTypeName(parent.thistype));
         }
+    }
+
+    static TypeInfo getUnknownType() {
+        return getTypeInfo(RefType.v(getUnknownClass()));
     }
 
     public static TypeInfo getClassTypeByName(String name) {
@@ -79,7 +98,8 @@ public class TypeInfo {
             Type subt = at.getElementType();
             if (subt instanceof RefLikeType) {
                 RefLikeType eletype = (RefLikeType) subt;
-                // System.out.println("T and subt: " + at.toString() + " " + subt.toString() + " " + Boolean.toString(eletype instanceof ArrayType));
+                // System.out.println("T and subt: " + at.toString() + " " + subt.toString() + "
+                // " + Boolean.toString(eletype instanceof ArrayType));
                 fields.put(Anderson.ARRAY_FIELD, getTypeInfo(eletype));
             }
         }
@@ -97,8 +117,12 @@ public class TypeInfo {
         return thistype;
     }
 
-    Set<Map.Entry<String,TypeInfo>> getFields() {
+    Set<Map.Entry<String, TypeInfo>> getFields() {
         return fields.entrySet();
+    }
+
+    static TypeInfo getArrayTypeInfo(TypeInfo t) {
+        return TypeInfo.getTypeInfo(t.thistype.getArrayType());
     }
 
     HashMap<String, TypeInfo> fields;

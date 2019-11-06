@@ -84,7 +84,7 @@ class HeapObject {
 
 class UnknownHeapObject extends HeapObject {
 	UnknownHeapObject(Anderson anderson, int allocid) {
-		super(anderson, TypeInfo.getTypeInfo((RefLikeType)Scene.v().getType("java.lang.Object[]")), allocid);
+		super(anderson, TypeInfo.getUnknownType(), allocid);
 	}
 
 	@Override
@@ -94,12 +94,12 @@ class UnknownHeapObject extends HeapObject {
 
 	@Override
 	Pointer getField(String name) {
-		return super.getField(Anderson.ARRAY_FIELD);
+		return super.getField(Anderson.UNKNOWN_SIGN);
 	}
 
 	@Override
 	boolean addToField(String name, Pointer inputs) {
-		return super.addToField(Anderson.ARRAY_FIELD, inputs);
+		return super.addToField(Anderson.UNKNOWN_SIGN, inputs);
 	}
 }
 
@@ -274,6 +274,9 @@ public class Anderson {
 	public static final String THIS_LOCAL = "@this";
 	public static final String ARRAY_FIELD = "#arrayvalue";
 	public static final String PARAMETER_LOCAL_PREFIX = "@parameter";
+	public static final String UNKNOWN_CLASS = "unknown__type__class_282395";
+	public static final String UNKNOWN_FIELD = "unknownobj";
+	public static final String UNKNOWN_SIGN = "<unknown__type__class_282395: java.lang.Object unknownobj>";
 
 	public static String parameterLocalName(int i) {
 		return Anderson.PARAMETER_LOCAL_PREFIX + Integer.toString(i);
@@ -295,7 +298,8 @@ public class Anderson {
 
 		addStatic(UNKNOWN_LOCAL, TypeInfo.getClassTypeByName(UNKNOWN_TYPE));
 		addStatic(EXCEPTION_LOCAL, TypeInfo.getClassTypeByName(EXCEPTION_TYPE));
-		UnknownHeapObject uho = new UnknownHeapObject(this, 0);
+		UnknownHeapObject uho = new UnknownHeapObject(this, -1);
+		System.out.println(uho.fields.keySet());
 		uho_index = heapObjects.size();
 		heapObjects.add(uho);
 		locals.get(UNKNOWN_LOCAL).addOne(uho_index);
@@ -304,7 +308,7 @@ public class Anderson {
 	private boolean updateUnknown() {
 		boolean flag = false;
 		Pointer l = locals.get(UNKNOWN_LOCAL);
-		Pointer h = heapObjects.get(uho_index).getField(ARRAY_FIELD);
+		Pointer h = heapObjects.get(uho_index).getField(UNKNOWN_FIELD);
 		if(l.addAll(h))
 			flag = true;
 		if(h.addAll(l))
@@ -413,7 +417,22 @@ public class Anderson {
 	}
 
 	public void addNewMultiArray(String method, String localname, int allocid, TypeInfo t, int depth) {
+		List<Integer> copyids = funccopys.get(method);
+		for (int cpyid : copyids) {
+			int lastheapid = -1;
+			int newheapid = 0;
 
+			for(int i = 0; i < depth; ++i) {
+				newheapid = heapObjects.size();
+				heapObjects.add(new HeapObject(this, t, allocid));
+				if(lastheapid != -1)
+					heapObjects.get(newheapid).getField(ARRAY_FIELD).addOne(lastheapid);
+				lastheapid = newheapid;
+				t = TypeInfo.getArrayTypeInfo(t);
+			}
+
+			locals.get(localName(method, cpyid, localname)).addOne(lastheapid);
+		}
 	}
 
 	public void run() {

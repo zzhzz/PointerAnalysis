@@ -15,5 +15,6 @@ run_program ArrayTest
 run_program CastTest
 run_program FieldSensitivity
 run_program Hello
+run_program MultiArray
 run_program SubCallTest
 run_program UnknownTest
