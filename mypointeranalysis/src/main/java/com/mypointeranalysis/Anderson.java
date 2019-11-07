@@ -31,6 +31,10 @@ class Pointer {
 	}
 
 	public boolean addOne(int i) {
+		if (i >= anderson.heapObjects.size()) {
+			MyOutput.myassert(false);
+			return false;
+		}
 		TypeInfo tf = anderson.heapObjects.get(i).t;
 		if (!TypeInfo.canContain(tf, t)) {
 			return false;
@@ -72,6 +76,7 @@ class HeapObject {
 		if (fields.containsKey(name)) {
 			return fields.get(name).addAll(inputs);
 		} else {
+			MyOutput.myassert(false);
 			return false;
 		}
 	}
@@ -212,7 +217,7 @@ class AssignConstraint {
 	boolean UpdatePointto_l2l() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		if(f == null || t == null) {
+		if (f == null || t == null) {
 			MyOutput.myassert(false);
 			return false;
 		}
@@ -222,12 +227,15 @@ class AssignConstraint {
 	boolean UpdatePointto_f2l() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		if(f == null || t == null) {
+		if (f == null || t == null) {
 			MyOutput.myassert(false);
 			return false;
 		}
+
 		boolean flag = false;
-		for (int o : f.getAll()) {
+		Set<Integer> tmpset = new TreeSet<>();
+		tmpset.addAll(f.getAll());
+		for (int o : tmpset) {
 			HeapObject ho = anderson.heapObjects.get(o);
 			if (ho.hasField(from)) {
 				if (t.addAll(ho.getField(from)))
@@ -235,25 +243,24 @@ class AssignConstraint {
 			} else {
 				MyOutput.myassert(false);
 			}
-			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
-			// if (fields.containsKey(from)) {
-			// if (t.pointto.addAll(fields.get(from))) {
-			// flag = true;
-			// }
-			// }
 		}
+
 		return flag;
 	}
 
 	boolean UpdatePointto_l2f() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		if(f == null || t == null) {
+		if (f == null || t == null) {
 			MyOutput.myassert(false);
 			return false;
 		}
 		boolean flag = false;
 		for (int o : t.getAll()) {
+			if (o >= anderson.heapObjects.size()) {
+				MyOutput.myassert(false);
+				continue;
+			}
 			HeapObject ho = anderson.heapObjects.get(o);
 			if (ho.hasField(to)) {
 				if (ho.addToField(to, f)) {
@@ -262,12 +269,6 @@ class AssignConstraint {
 			} else {
 				MyOutput.myassert(false);
 			}
-			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
-			// if (fields.containsKey(to)) {
-			// if (fields.get(to).addAll(f.pointto)) {
-			// flag = true;
-			// }
-			// }
 		}
 		return flag;
 	}
@@ -340,17 +341,22 @@ public class Anderson {
 		Set<Integer> allunknown = new TreeSet<>();
 		while (!q.isEmpty()) {
 			int nexti = q.remove();
-			if (allunknown.contains(nexti))
+			if (!allunknown.add(nexti))
 				continue;
-			allunknown.add(nexti);
 			for (Map.Entry<String, Pointer> newpt : heapObjects.get(nexti).getFields().entrySet()) {
 				q.addAll(newpt.getValue().getAll());
 			}
 		}
-		if (l.getAll().addAll(allunknown))
-			flag = true;
-		if (h.getAll().addAll(allunknown))
-			flag = true;
+		for (int toadd : allunknown) {
+			if (l.addOne(toadd)) {
+				flag = true;
+			}
+		}
+		for (int toadd : allunknown) {
+			if (h.addOne(toadd)) {
+				flag = true;
+			}
+		}
 
 		return flag;
 	}
