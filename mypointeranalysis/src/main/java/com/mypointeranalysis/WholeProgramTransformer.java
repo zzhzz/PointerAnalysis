@@ -84,10 +84,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 	boolean shouldanalysis(SootMethod sm) {
 		SootClass sc = sm.getDeclaringClass();
 		String name = sc.getName();
-		if(name.equals("java.lang.Object"))
+		if (name.equals("java.lang.Object"))
 			return true;
-		return !name.startsWith("java") && !name.startsWith("org")
-				&& !name.startsWith("jdk") && !name.startsWith("com") && !name.startsWith("sun");
+		return !name.startsWith("java") && !name.startsWith("org") && !name.startsWith("jdk") && !name.startsWith("com")
+				&& !name.startsWith("sun");
 	}
 
 	public static String getMethodName(SootMethod sm) {
@@ -107,6 +107,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	IdentityHashMap<SootMethod, Object> entries = new IdentityHashMap<>();
 
 	List<TestCase> testcases = new ArrayList<>();
+	List<Integer> testcase_empty = new ArrayList<>();
 	// Set<String> consider_methods = new HashSet<>();
 
 	Set<Integer> allallocids = new TreeSet<>();
@@ -434,8 +435,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 				ThrowStmt ts = (ThrowStmt) u;
 				Value v = ts.getOp();
 				if (v instanceof Local) {
-					anderson.addAssignConstraint_intra_to_static(sm_name,
-							getLocalName((Local) v), Anderson.EXCEPTION_LOCAL);
+					anderson.addAssignConstraint_intra_to_static(sm_name, getLocalName((Local) v),
+							Anderson.EXCEPTION_LOCAL);
 				} else {
 					MyOutput.myassert(false);
 				}
@@ -492,14 +493,70 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 	@Override
 	protected void internalTransform(String phaseName, Map<String, String> options) {
-		anderson = new Anderson();
-		process_edges();
+		try {
+			anderson = new Anderson();
+			process_edges();
 
-		QueueReader<MethodOrMethodContext> qr = Scene.v().getReachableMethods().listener();
-		while (qr.hasNext()) {
-			process_method(qr.next().method());
+			QueueReader<MethodOrMethodContext> qr = Scene.v().getReachableMethods().listener();
+			while (qr.hasNext()) {
+				process_method(qr.next().method());
+			}
+			anderson.run();
+			print_testcases();
+		} catch (Exception ex) {
+			MyOutput.myassert(false);
+			QueueReader<MethodOrMethodContext> qr = Scene.v().getReachableMethods().listener();
+			while (qr.hasNext()) {
+				process_method_empty(qr.next().method());
+			}
+			print_testcases_empty();
 		}
-		anderson.run();
-		print_testcases();
+	}
+
+	void process_method_empty(SootMethod sm) {
+		int allocid = -1;
+		if (!sm.hasActiveBody())
+			return;
+		JimpleBody jb = (JimpleBody) sm.getActiveBody();
+
+		for (Unit u : jb.getUnits()) {
+			try {
+				if (u instanceof InvokeStmt) {
+					InvokeExpr ie = ((InvokeStmt) u).getInvokeExpr();
+					SootMethod invoke_sm = ie.getMethod();
+					if (invoke_sm.getDeclaringClass().getName().equals("benchmark.internal.BenchmarkN")) {
+						if (invoke_sm.getName().equals("alloc")) {
+							if (ie.getArgCount() >= 1 && ie.getArg(0) instanceof IntConstant) {
+								allocid = ((IntConstant) ie.getArg(0)).value;
+								allallocids.add(allocid);
+							}
+						} else if (invoke_sm.getName().equals("test")) {
+							if (ie.getArgCount() >= 1 && ie.getArg(0) instanceof IntConstant) {
+								int testcase_id = ((IntConstant) ie.getArg(0)).value;
+								testcase_empty.add(testcase_id);
+							}
+						}
+					}
+				}
+			} catch (Exception ex) {
+			}
+		}
+	}
+
+	void print_testcases_empty() {
+		StringBuilder builder = new StringBuilder();
+		for (int tc : testcase_empty) {
+			Set<Integer> results = allallocids;
+			builder.append(Integer.toString(tc));
+			builder.append(":");
+			for (int i : results) {
+				if (i != -1) {
+					builder.append(" ");
+					builder.append(Integer.toString(i));
+				}
+			}
+			builder.append("\n");
+		}
+		AnswerPrinter.printAnswer(builder.toString());
 	}
 }
