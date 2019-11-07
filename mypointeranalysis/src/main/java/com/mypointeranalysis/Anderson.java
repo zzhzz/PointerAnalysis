@@ -215,6 +215,8 @@ class AssignConstraint {
 			if(ho.hasField(from)) {
 				if(t.addAll(ho.getField(from)))
 					flag = true;
+			} else {
+				MyOutput.myassert(false);
 			}
 			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
 			// if (fields.containsKey(from)) {
@@ -236,6 +238,8 @@ class AssignConstraint {
 				if(ho.addToField(to, f)) {
 					flag = true;
 				}
+			} else {
+				MyOutput.myassert(false);
 			}
 			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
 			// if (fields.containsKey(to)) {

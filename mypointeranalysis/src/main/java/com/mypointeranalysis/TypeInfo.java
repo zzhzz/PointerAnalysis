@@ -83,15 +83,20 @@ public class TypeInfo {
         if (t instanceof RefType) {
             RefType rt = (RefType) t;
             SootClass sc = rt.getSootClass();
-            Chain<SootField> thisfields = sc.getFields();
-            for (SootField field : thisfields) {
-                Type ftype = field.getType();
-                if (ftype instanceof RefLikeType) {
-                    String ftname = getTypeName((RefLikeType) ftype);
-                    if (ftname != null) {
-                        fields.put(field.getSignature(), getTypeInfo((RefLikeType) ftype));
+            SootClass sc_current = sc;
+            while(sc_current != null) {
+                Chain<SootField> thisfields = sc_current.getFields();
+                for (SootField field : thisfields) {
+                    System.out.println(sc.toString() + ": " + field.getSignature());
+                    Type ftype = field.getType();
+                    if (ftype instanceof RefLikeType) {
+                        String ftname = getTypeName((RefLikeType) ftype);
+                        if (ftname != null) {
+                            fields.put(field.getSignature(), getTypeInfo((RefLikeType) ftype));
+                        }
                     }
                 }
+                sc_current = sc_current.getSuperclassUnsafe();
             }
         } else if (t instanceof ArrayType) {
             ArrayType at = (ArrayType) t;
