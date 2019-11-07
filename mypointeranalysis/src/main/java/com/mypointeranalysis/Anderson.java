@@ -375,7 +375,7 @@ public class Anderson {
 
 	public void addAssignConstraint_intra(String method, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -387,7 +387,7 @@ public class Anderson {
 
 	public void addAssignConstraint_intra_from_filed(String method, String from_base, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -399,7 +399,7 @@ public class Anderson {
 
 	public void addAssignConstraint_intra_to_field(String method, String from, String to_base, String to) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -411,7 +411,7 @@ public class Anderson {
 
 	public void addAssignConstraint_intra_from_static(String method, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -422,7 +422,7 @@ public class Anderson {
 
 	public void addAssignConstraint_intra_to_static(String method, String from, String to) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -434,7 +434,7 @@ public class Anderson {
 	public void addAssignConstraint_inter_fromid(String method_from, int call_id_from, String from, String method_to,
 			String to) {
 		List<Integer> copyids = funccopys.get(method_to);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -447,7 +447,7 @@ public class Anderson {
 	public void addAssignConstraint_inter_toid(String method_from, String from, String method_to, int call_id_to,
 			String to) {
 		List<Integer> copyids = funccopys.get(method_from);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -463,7 +463,7 @@ public class Anderson {
 
 	public void addLocal(String method, String localname, TypeInfo t) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -479,7 +479,7 @@ public class Anderson {
 
 	public void addNew(String method, String localname, int allocid, TypeInfo t) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
@@ -499,7 +499,7 @@ public class Anderson {
 
 	public void addNewMultiArray(String method, String localname, int allocid, TypeInfo t, int depth) {
 		List<Integer> copyids = funccopys.get(method);
-		if(copyids == null) {
+		if (copyids == null) {
 			MyOutput.myassert(false);
 			return;
 		}
