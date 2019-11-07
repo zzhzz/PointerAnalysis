@@ -87,7 +87,7 @@ public class TypeInfo {
             while(sc_current != null) {
                 Chain<SootField> thisfields = sc_current.getFields();
                 for (SootField field : thisfields) {
-                    System.out.println(sc.toString() + ": " + field.getSignature());
+                    // System.out.println(sc.toString() + ": " + field.getSignature());
                     Type ftype = field.getType();
                     if (ftype instanceof RefLikeType) {
                         String ftname = getTypeName((RefLikeType) ftype);

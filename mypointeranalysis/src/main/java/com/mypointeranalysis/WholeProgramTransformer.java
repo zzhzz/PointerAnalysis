@@ -113,7 +113,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 	Set<Integer> allallocids = new TreeSet<>();
 	Set<String> processed_class = new TreeSet<>();
 
-	boolean shouldprintall = false;
+	static boolean shouldprintall = false;
 
 	void process_edges() {
 		CallGraph cg = Scene.v().getCallGraph();
@@ -367,12 +367,12 @@ public class WholeProgramTransformer extends SceneTransformer {
 							NewArrayExpr nae = (NewArrayExpr) right;
 							RefLikeType t = nae.getBaseType().makeArrayType();
 							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
-							allocid = -1;
+							// allocid = -1;
 						} else if (right instanceof NewExpr) {
 							NewExpr ne = (NewExpr) right;
 							RefLikeType t = ne.getBaseType();
 							anderson.addNew(sm_name, localleft_name, allocid, TypeInfo.getTypeInfo(t));
-							allocid = -1;
+							// allocid = -1;
 						} else if (right instanceof NewMultiArrayExpr) {
 							NewMultiArrayExpr nmae = (NewMultiArrayExpr) right;
 							Type t = nmae.getBaseType();
@@ -381,7 +381,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 							}
 							anderson.addNewMultiArray(sm_name, localleft_name, allocid,
 									TypeInfo.getTypeInfo((RefLikeType) t), nmae.getSizeCount());
-							allocid = -1;
+							// allocid = -1;
 						} else if (right instanceof CaughtExceptionRef) {
 							anderson.addAssignConstraint_intra_from_static(sm_name, Anderson.EXCEPTION_LOCAL,
 									localleft_name);
@@ -470,7 +470,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 		// anderson.printall();
 		StringBuilder builder = new StringBuilder();
 		for (TestCase tc : testcases) {
-			Set<Integer> results = anderson.getAllocIds(tc.method, tc.local);
+			Set<Integer> results;
 			if (shouldprintall) {
 				results = allallocids;
 			} else {

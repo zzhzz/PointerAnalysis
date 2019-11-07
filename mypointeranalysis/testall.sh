@@ -14,8 +14,12 @@ run_program () {
 
 run_program ArrayTest
 run_program CastTest
+run_program ExceptionTest
 run_program FieldSensitivity
 run_program Hello
+run_program LinkList
 run_program MultiArray
+run_program RecRef
+run_program RecTest
 run_program SubCallTest
 run_program UnknownTest

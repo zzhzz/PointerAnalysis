@@ -169,12 +169,18 @@ class AssignConstraint {
 		from_unknown = !anderson.locals.containsKey(frombase);
 		to_unknown = !anderson.locals.containsKey(tobase);
 		if (from_unknown && to_unknown) {
+			System.out.println("FROM_TO_UNKNOWN: " + toString());
+			// WholeProgramTransformer.shouldprintall = true;
 			enabled = false;
 		} else if (from_unknown && !to_unknown) {
+			System.out.println("FROM_UNKNOWN: " + toString());
+			// WholeProgramTransformer.shouldprintall = true;
 			from_field = false;
 			from = null;
 			frombase = Anderson.UNKNOWN_LOCAL;
 		} else if (!from_unknown && to_unknown) {
+			System.out.println("TO_UNKNOWN: " + toString());
+			// WholeProgramTransformer.shouldprintall = true;
 			to_field = false;
 			to = null;
 			tobase = Anderson.UNKNOWN_LOCAL;
