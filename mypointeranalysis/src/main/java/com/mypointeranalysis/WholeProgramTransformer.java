@@ -504,6 +504,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			anderson.run();
 			print_testcases();
 		} catch (Exception ex) {
+			ex.printStackTrace();
 			MyOutput.myassert(false);
 			QueueReader<MethodOrMethodContext> qr = Scene.v().getReachableMethods().listener();
 			while (qr.hasNext()) {
