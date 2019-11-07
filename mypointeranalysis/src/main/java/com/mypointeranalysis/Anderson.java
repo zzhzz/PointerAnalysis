@@ -233,7 +233,7 @@ class AssignConstraint {
 		}
 
 		boolean flag = false;
-		Set<Integer> tmpset = new TreeSet<>();
+		Set<Integer> tmpset = new TreeSet<>(); // copy set object, (x=x.t), set may be changed during iteration.
 		tmpset.addAll(f.getAll());
 		for (int o : tmpset) {
 			HeapObject ho = anderson.heapObjects.get(o);
