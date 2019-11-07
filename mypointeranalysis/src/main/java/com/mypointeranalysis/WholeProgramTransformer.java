@@ -81,7 +81,7 @@ class Invocation {
 
 public class WholeProgramTransformer extends SceneTransformer {
 
-ch	boolean shouldanalysis(SootMethod sm) {
+	boolean shouldanalysis(SootMethod sm) {
 		SootClass sc = sm.getDeclaringClass();
 		String name = sc.getName();
 		if(name.equals("java.lang.Object"))

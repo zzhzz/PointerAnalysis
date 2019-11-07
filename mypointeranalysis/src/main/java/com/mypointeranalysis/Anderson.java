@@ -486,28 +486,28 @@ public class Anderson {
 	public Set<Integer> getAllocIds(String method, String localname) {
 		Set<Integer> results = new TreeSet<>();
 
-		Set<Integer> heaps = new TreeSet<Integer>();
-		Queue<Integer> searchq = new ArrayDeque<>();
+		// Set<Integer> heaps = new TreeSet<Integer>();
+		// Queue<Integer> searchq = new ArrayDeque<>();
 		for (int cpyid : funccopys.get(method)) {
 			Pointer heapids = locals.get(localName(method, cpyid, localname));
-			// for (int heapid : heapids.getAll()) {
-			// 	results.add(heapObjects.get(heapid).allocid);
-			// }
-			searchq.addAll(heapids.getAll());
-		}
-
-		while(!searchq.isEmpty()) {
-			int nexti = searchq.remove();
-			if(!heaps.add(nexti))
-				continue;
-			for(Map.Entry<String, Pointer> newpt: heapObjects.get(nexti).getFields().entrySet()) {
-				searchq.addAll(newpt.getValue().getAll());
+			for (int heapid : heapids.getAll()) {
+				results.add(heapObjects.get(heapid).allocid);
 			}
+			// searchq.addAll(heapids.getAll());
 		}
 
-		for(int heapi: heaps) {
-			results.add(heapObjects.get(heapi).allocid);
-		}
+		// while(!searchq.isEmpty()) {
+		// 	int nexti = searchq.remove();
+		// 	if(!heaps.add(nexti))
+		// 		continue;
+		// 	for(Map.Entry<String, Pointer> newpt: heapObjects.get(nexti).getFields().entrySet()) {
+		// 		searchq.addAll(newpt.getValue().getAll());
+		// 	}
+		// }
+
+		// for(int heapi: heaps) {
+		// 	results.add(heapObjects.get(heapi).allocid);
+		// }
 		
 		return results;
 	}
