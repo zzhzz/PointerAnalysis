@@ -1,8 +1,8 @@
 package com.mypointeranalysis;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 import soot.ArrayType;
 import soot.RefLikeType;
@@ -14,9 +14,10 @@ import soot.Type;
 import soot.util.Chain;
 
 public class TypeInfo {
-    static HashMap<String, TypeInfo> typeinfos = new HashMap<>();
+    private static HashMap<String, TypeInfo> typeinfos = new HashMap<>();
+    private static SootClass unknownclass;
 
-    static TypeInfo getTypeInfo(RefLikeType t) {
+    public static TypeInfo getTypeInfo(RefLikeType t) {
         if (t == null)
             return null;
         // System.out.println(t.toString());
@@ -29,17 +30,15 @@ public class TypeInfo {
         return typeinfos.get(tname);
     }
 
-    static boolean shouldConsider(Type t) {
-        return t instanceof RefLikeType;
-    }
-
-    static String getTypeName(RefLikeType t) {
+    public static String getTypeName(RefLikeType t) {
         return t.toString();
     }
 
-    private static SootClass unknownclass;
+    public static TypeInfo getArrayTypeInfo(TypeInfo t) {
+        return TypeInfo.getTypeInfo(t.thistype.getArrayType());
+    }
 
-    static SootClass getUnknownClass() {
+    public static SootClass getUnknownClass() {
         if (unknownclass == null) {
             unknownclass = new SootClass(Anderson.UNKNOWN_CLASS);
             SootField f = new SootField(Anderson.UNKNOWN_FIELD, RefType.v(Scene.v().getSootClass("java.lang.Object")));
@@ -48,7 +47,7 @@ public class TypeInfo {
         return unknownclass;
     }
 
-    static boolean canContain(TypeInfo child, TypeInfo parent) {
+    public static boolean canContain(TypeInfo child, TypeInfo parent) {
         if (child.isClass() && parent.isClass()) {
             SootClass scc = ((RefType) child.thistype).getSootClass();
             SootClass scp = ((RefType) parent.thistype).getSootClass();
@@ -60,7 +59,7 @@ public class TypeInfo {
         }
     }
 
-    static TypeInfo getUnknownType() {
+    public static TypeInfo getUnknownType() {
         return getTypeInfo(RefType.v(getUnknownClass()));
     }
 
@@ -68,8 +67,8 @@ public class TypeInfo {
         return TypeInfo.getTypeInfo(RefType.v(name));
     }
 
-    TypeInfo(RefLikeType t) {
-        fields = new HashMap<>();
+    private TypeInfo(RefLikeType t) {
+        fields = new ArrayList<>();
         typename = getTypeName(t);
         thistype = t;
 
@@ -89,7 +88,7 @@ public class TypeInfo {
                 if (ftype instanceof RefLikeType) {
                     String ftname = getTypeName((RefLikeType) ftype);
                     if (ftname != null) {
-                        fields.put(field.getSignature(), getTypeInfo((RefLikeType) ftype));
+                        fields.add(FieldInfo.getFieldInfo(field.getSignature(), getTypeInfo((RefLikeType) ftype)));
                     }
                 }
             }
@@ -98,34 +97,37 @@ public class TypeInfo {
             Type subt = at.getElementType();
             if (subt instanceof RefLikeType) {
                 RefLikeType eletype = (RefLikeType) subt;
-                // System.out.println("T and subt: " + at.toString() + " " + subt.toString() + "
-                // " + Boolean.toString(eletype instanceof ArrayType));
-                fields.put(Anderson.ARRAY_FIELD, getTypeInfo(eletype));
+                fields.add(FieldInfo.getFieldInfo(Anderson.ARRAY_FIELD + "@@" + TypeInfo.getTypeName(eletype),
+                        getTypeInfo(eletype)));
             }
         }
     }
 
-    boolean isClass() {
+    public boolean isClass() {
         return thistype instanceof RefType;
     }
 
-    SootClass getTypeClass() {
+    public SootClass getTypeClass() {
         return ((RefType) thistype).getSootClass();
     }
 
-    RefLikeType getRefLikeType() {
+    public RefLikeType getRefLikeType() {
         return thistype;
     }
 
-    Set<Map.Entry<String, TypeInfo>> getFields() {
-        return fields.entrySet();
+    public Iterable<FieldInfo> getFields() {
+        return fields;
     }
 
-    static TypeInfo getArrayTypeInfo(TypeInfo t) {
-        return TypeInfo.getTypeInfo(t.thistype.getArrayType());
+    public FieldInfo getField(int i) {
+        return fields.get(i);
     }
 
-    HashMap<String, TypeInfo> fields;
-    String typename;
-    RefLikeType thistype;
+    public int getFieldCount() {
+        return fields.size();
+    }
+
+    private List<FieldInfo> fields;
+    private String typename;
+    private RefLikeType thistype;
 }

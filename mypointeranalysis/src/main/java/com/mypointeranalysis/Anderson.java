@@ -2,6 +2,7 @@ package com.mypointeranalysis;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -9,111 +10,54 @@ import java.util.TreeSet;
 
 import soot.RefLikeType;
 import soot.Scene;
+import soot.SootField;
 
-class Pointer {
+class HeapObjectInfo {
+	private int allocid, id;
 	private TypeInfo t;
-	private Set<Integer> pointto;
-	private Anderson anderson;
 
-	Pointer(Anderson anderson, TypeInfo t) {
-		this.anderson = anderson;
-		this.t = t;
-		this.pointto = new TreeSet<>();
-	}
-
-	public boolean addAll(Pointer pt) {
-		boolean flag = false;
-		for(int i: pt.pointto) {
-			if(addOne(i)) {
-				flag = true;
-			}
-		}
-		return flag;
-	}
-
-	public boolean addOne(int i) {
-		TypeInfo tf = anderson.heapObjects.get(i).t;
-		if(!TypeInfo.canContain(tf, t)) {
-			return false;
-		} else {
-			return pointto.add(i);
-		}
-	}
-
-	public Set<Integer> getAll() {
-		return pointto;
-	}
-}
-
-class HeapObject {
-	int allocid;
-	TypeInfo t;
-	Anderson anderson;
-	Map<String, Pointer> fields;
-
-	HeapObject(Anderson anderson, TypeInfo t, int allocid) {
-		this.anderson = anderson;
+	HeapObjectInfo(TypeInfo t, int allocid, int id) {
 		this.t = t;
 		this.allocid = allocid;
-		fields = new HashMap<String, Pointer>();
-		for (Map.Entry<String, TypeInfo> e : t.getFields()) {
-			fields.put(e.getKey(), new Pointer(anderson, e.getValue()));
-		}
-	}
-
-	Pointer getField(String name) {
-		return fields.get(name);
-	}
-
-	boolean hasField(String name) {
-		return fields.containsKey(name);
-	}
-
-	boolean addToField(String name, Pointer inputs) {
-		if(fields.containsKey(name)) {
-			return fields.get(name).addAll(inputs);
-		} else {
-			return false;
-		}
+		this.id = id;
 	}
 
 	public int getAllocid() {
 		return allocid;
 	}
-}
 
-class UnknownHeapObject extends HeapObject {
-	UnknownHeapObject(Anderson anderson, int allocid) {
-		super(anderson, TypeInfo.getUnknownType(), allocid);
+	public TypeInfo getT() {
+		return t;
 	}
 
-	@Override
-	boolean hasField(String name) {
-		return true;
-	}
-
-	@Override
-	Pointer getField(String name) {
-		return super.getField(Anderson.UNKNOWN_SIGN);
-	}
-
-	@Override
-	boolean addToField(String name, Pointer inputs) {
-		return super.addToField(Anderson.UNKNOWN_SIGN, inputs);
+	public int getId() {
+		return id;
 	}
 }
 
-// class LocalPointer {
-// 	TypeInfo t;
-// 	Pointer pointto;
-// 	Anderson anderson;
+class LocalInfo {
+	private String name;
+	private TypeInfo t;
+	private int id;
 
-// 	LocalPointer(Anderson anderson, TypeInfo t) {
-// 		this.t = t;
-// 		this.anderson = anderson;
-// 		pointto = new Pointer(anderson, t);
-// 	}
-// }
+	LocalInfo(String name, TypeInfo t, int id) {
+		this.name = name;
+		this.t = t;
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public TypeInfo getT() {
+		return t;
+	}
+
+	public int getId() {
+		return id;
+	}
+}
 
 class AssignConstraint {
 	Anderson anderson;
@@ -184,67 +128,58 @@ class AssignConstraint {
 		// System.out.println(toString());
 	}
 
-	public boolean UpdatePointto() {
+	public void UpdatePointto() {
 		if (!enabled)
-			return false;
+			return;
 
 		if (!from_field && !to_field) {
-			return UpdatePointto_l2l();
+			UpdatePointto_l2l();
 		} else if (from_field && !to_field) {
-			return UpdatePointto_f2l();
+			UpdatePointto_f2l();
 		} else if (!from_field && to_field) {
-			return UpdatePointto_l2f();
+			UpdatePointto_l2f();
 		} else {
 			MyOutput.myassert(false);
-			return false;
+			return;
 		}
 	}
 
-	boolean UpdatePointto_l2l() {
+	void UpdatePointto_l2l() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		return t.addAll(f);
+		t.clear();
+		t.addAll(f);
 	}
 
-	boolean UpdatePointto_f2l() {
+	void UpdatePointto_f2l() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		boolean flag = false;
+		t.clear();
 		for (int o : f.getAll()) {
-			HeapObject ho = anderson.heapObjects.get(o);
-			if(ho.hasField(from)) {
-				if(t.addAll(ho.getField(from)))
-					flag = true;
+			HeapObjectInfo ho = anderson.heapObjects.get(o);
+			if (ho.hasField(from)) {
+				t.addAll(ho.getField(from));
+			} else {
+				MyOutput.myassert(false);
 			}
-			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
-			// if (fields.containsKey(from)) {
-			// 	if (t.pointto.addAll(fields.get(from))) {
-			// 		flag = true;
-			// 	}
-			// }
 		}
-		return flag;
 	}
 
-	boolean UpdatePointto_l2f() {
+	void UpdatePointto_l2f() {
 		Pointer f = anderson.locals.get(frombase);
 		Pointer t = anderson.locals.get(tobase);
-		boolean flag = false;
+		int allsize = t.getAll().size();
 		for (int o : t.getAll()) {
-			HeapObject ho = anderson.heapObjects.get(o);
-			if(ho.hasField(to)) {
-				if(ho.addToField(to, f)) {
-					flag = true;
+			HeapObjectInfo ho = anderson.heapObjects.get(o);
+			if (ho.hasField(to)) {
+				if (allsize == 1) {
+					ho.clearField(to);
 				}
+				ho.addToField(to, f);
+			} else {
+				MyOutput.myassert(false);
 			}
-			// Map<String, Set<Integer>> fields = anderson.heapObjects.get(o).fields;
-			// if (fields.containsKey(to)) {
-			// 	if (fields.get(to).addAll(f.pointto)) {
-			// 		flag = true;
-			// 	}
-			// }
 		}
-		return flag;
 	}
 
 	@Override
@@ -265,6 +200,74 @@ class AssignConstraint {
 	}
 }
 
+class ProgramStatus {
+	List<Map<FieldInfo, Set<Integer>>> heapObjectValues;
+	List<Set<Integer>> localValues;
+
+	private ProgramStatus() {
+	}
+
+	public static ProgramStatus createFromInfo(VariablesInfo vi) {
+		ProgramStatus result = new ProgramStatus();
+		result.heapObjectValues = new ArrayList<>();
+		for (HeapObjectInfo hoi : vi.heapObjectInfo) {
+			Map<FieldInfo, Set<Integer>> ho = new HashMap<>();
+			for (FieldInfo fi : hoi.getT().getFields()) {
+				ho.put(fi, new TreeSet<Integer>());
+			}
+			result.heapObjectValues.add(ho);
+		}
+		result.localValues = new ArrayList<>();
+		for (LocalInfo li : vi.localInfo) {
+			result.localValues.add(new TreeSet<Integer>());
+		}
+		return result;
+	}
+
+	public static ProgramStatus cloneStatus(ProgramStatus ps) {
+		ProgramStatus result = new ProgramStatus();
+		result.heapObjectValues = new ArrayList<>();
+		for (Map<FieldInfo, Set<Integer>> hoi : ps.heapObjectValues) {
+			Map<FieldInfo, Set<Integer>> ho = new HashMap<>();
+			for (Map.Entry<FieldInfo, Set<Integer>> fi : hoi.entrySet()) {
+				Set<Integer> n = new TreeSet<>();
+				n.addAll(fi.getValue());
+				ho.put(fi.getKey(), n);
+			}
+			result.heapObjectValues.add(ho);
+		}
+		result.localValues = new ArrayList<>();
+		for (Set<Integer> li : ps.localValues) {
+			Set<Integer> l = new TreeSet<>();
+			l.addAll(li);
+			result.localValues.add(l);
+		}
+		return result;
+	}
+}
+
+class VariablesInfo {
+	public List<HeapObjectInfo> heapObjectInfo;
+	public List<LocalInfo> localInfo;
+	public Map<String, LocalInfo> localInfo_inv;
+
+	public LocalInfo emplaceLocal(String name, TypeInfo t) {
+		if(localInfo_inv.containsKey(name)) {
+			MyOutput.myassert(false);
+			return null;
+		}
+		int newid = localInfo.size();
+		LocalInfo l = new LocalInfo(name, t, newid);
+		localInfo.add(l);
+		localInfo_inv.put(name, l);
+		return l;
+	}
+
+	public HeapObjectInfo emplaceHeapObject(int allocid, TypeInfo t) {
+		HeapObjectInfo hoi = ;
+	}
+}
+
 public class Anderson {
 	public static final String UNKNOWN_LOCAL = "@unknown";
 	public static final String UNKNOWN_TYPE = "java.lang.Object";
@@ -278,6 +281,8 @@ public class Anderson {
 	public static final String UNKNOWN_FIELD = "unknownobj";
 	public static final String UNKNOWN_SIGN = "<unknown__type__class_282395: java.lang.Object unknownobj>";
 
+	public static final int EMPYT_ALLOCID = -1;
+
 	public static String parameterLocalName(int i) {
 		return Anderson.PARAMETER_LOCAL_PREFIX + Integer.toString(i);
 	}
@@ -285,19 +290,19 @@ public class Anderson {
 	private List<AssignConstraint> assignConstraintList;
 	private Map<String, List<Integer>> funccopys;
 
-	List<HeapObject> heapObjects;
-	Map<String, Pointer> locals;
-
-	int uho_index;
+	VariablesInfo vi;
 
 	public Anderson() {
-		assignConstraintList = new ArrayList<>();
-		funccopys = new HashMap<>();
-		heapObjects = new ArrayList<>();
-		locals = new HashMap<>();
+		funccopys = new HashMap<String, List<Integer>>();
+
+		vi = new VariablesInfo();
+		vi.heapObjectInfo = new ArrayList<HeapObjectInfo>();
+		vi.localInfo = new ArrayList<LocalInfo>();
+		vi.localInfo_inv = new HashMap<String, LocalInfo>();
 
 		addStatic(UNKNOWN_LOCAL, TypeInfo.getClassTypeByName(UNKNOWN_TYPE));
 		addStatic(EXCEPTION_LOCAL, TypeInfo.getClassTypeByName(EXCEPTION_TYPE));
+		HeapObjectInfo uhoi = new HeapObjectInfo(TypeInfo.getUnknownType(), EMPYT_ALLOCID);
 		UnknownHeapObject uho = new UnknownHeapObject(this, -1);
 		System.out.println(uho.fields.keySet());
 		uho_index = heapObjects.size();
@@ -309,9 +314,9 @@ public class Anderson {
 		boolean flag = false;
 		Pointer l = locals.get(UNKNOWN_LOCAL);
 		Pointer h = heapObjects.get(uho_index).getField(UNKNOWN_FIELD);
-		if(l.addAll(h))
+		if (l.addAll(h))
 			flag = true;
-		if(h.addAll(l))
+		if (h.addAll(l))
 			flag = true;
 		return flag;
 	}
@@ -404,7 +409,7 @@ public class Anderson {
 		List<Integer> copyids = funccopys.get(method);
 		for (int cpyid : copyids) {
 			int newheapid = heapObjects.size();
-			heapObjects.add(new HeapObject(this, t, allocid));
+			heapObjects.add(new HeapObjectInfo(this, t, allocid));
 			locals.get(localName(method, cpyid, localname)).addOne(newheapid);
 		}
 		// int numlocals = heapObjects.size();
@@ -422,10 +427,10 @@ public class Anderson {
 			int lastheapid = -1;
 			int newheapid = 0;
 
-			for(int i = 0; i < depth; ++i) {
+			for (int i = 0; i < depth; ++i) {
 				newheapid = heapObjects.size();
-				heapObjects.add(new HeapObject(this, t, allocid));
-				if(lastheapid != -1)
+				heapObjects.add(new HeapObjectInfo(this, t, allocid));
+				if (lastheapid != -1)
 					heapObjects.get(newheapid).getField(ARRAY_FIELD).addOne(lastheapid);
 				lastheapid = newheapid;
 				t = TypeInfo.getArrayTypeInfo(t);
@@ -448,7 +453,7 @@ public class Anderson {
 					flag = true;
 				}
 			}
-			if(updateUnknown())
+			if (updateUnknown())
 				flag = true;
 		}
 	}
@@ -467,8 +472,7 @@ public class Anderson {
 
 	public void printall() {
 		for (Map.Entry<String, Pointer> p : locals.entrySet()) {
-			System.out.println("Result: " + p.getKey() + ":" +
-			p.getValue().getAll().toString());
+			System.out.println("Result: " + p.getKey() + ":" + p.getValue().getAll().toString());
 		}
 	}
 }
