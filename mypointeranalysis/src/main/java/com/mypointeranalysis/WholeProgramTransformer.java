@@ -163,7 +163,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 			if (kname.equals("FINALIZE") || kname.equals("THREAD") || kname.equals("CLINIT")
 					|| kname.equals("PRIVILEGED")) {
 				entries.put(e.tgt(), null);
-				anderson.addFunctionCopy(getMethodName(e.tgt()), -1);
+				anderson.addFunctionCopy(getMethodName(e.tgt()), cur_call_id++);
 			} else if (kname.equals("VIRTUAL") || kname.equals("STATIC") || kname.equals("SPECIAL")
 					|| kname.equals("INTERFACE")) {
 				if (!call_relation.containsKey(e.srcStmt()))
@@ -178,8 +178,10 @@ public class WholeProgramTransformer extends SceneTransformer {
 	}
 
 	void process_one_invoke_expr(String method_from, InvokeExpr expr, Stmt u, Local returnlocal) {
-		if (!call_relation.containsKey(u))
+		if (!call_relation.containsKey(u)) {
+			MyOutput.myassert(false);
 			return;
+		}
 		for (Invocation inv : call_relation.get(u)) {
 			process_one_invoke(method_from, expr, inv.sm, inv.call_id, returnlocal);
 		}
