@@ -17,11 +17,6 @@
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>ca.mcgill.sable</groupId>
-      <artifactId>soot</artifactId>
-      <version>3.3.0</version>
-    </dependency>
   </dependencies>
 
   <build>
