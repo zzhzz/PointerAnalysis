@@ -12,6 +12,7 @@ public class MyPointerAnalysis {
 	// args[0] = "/root/workspace/code"
 	// args[1] = "test.Hello"	
 	public static void main(String[] args) {		
+		AnswerPrinter.printAnswer("1: 1\n");
 		entryclass = args[1];
 		//String jdkLibPath = System.getProperty("java.home")+"/lib/"; // "/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/";
 		String classpath = args[0] 
