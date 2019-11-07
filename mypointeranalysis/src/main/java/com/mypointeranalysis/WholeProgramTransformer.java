@@ -50,6 +50,8 @@ import soot.util.queue.QueueReader;
 
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
+import soot.toolkits.graph.BriefUnitGraph;
+import soot.toolkits.graph.UnitGraph;
 import soot.jimple.Stmt;
 import soot.jimple.StringConstant;
 import soot.jimple.TableSwitchStmt;
@@ -259,6 +261,9 @@ public class WholeProgramTransformer extends SceneTransformer {
 			return;
 
 		JimpleBody jb = (JimpleBody) sm.getActiveBody();
+
+		UnitGraph ug = new BriefUnitGraph(jb);
+
 
 		for (Local l : jb.getLocals()) {
 			Type lt = l.getType();
