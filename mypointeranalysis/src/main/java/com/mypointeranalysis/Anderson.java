@@ -1,9 +1,11 @@
 package com.mypointeranalysis;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -79,6 +81,10 @@ class HeapObject {
 
 	public int getAllocid() {
 		return allocid;
+	}
+
+	public Map<String, Pointer> getFields() {
+		return fields;
 	}
 }
 
@@ -319,10 +325,24 @@ public class Anderson {
 		boolean flag = false;
 		Pointer l = locals.get(UNKNOWN_LOCAL);
 		Pointer h = heapObjects.get(uho_index).getField(UNKNOWN_FIELD);
-		if(l.addAll(h))
+		Queue<Integer> q = new ArrayDeque<>();
+		q.addAll(l.getAll());
+		q.addAll(h.getAll());
+		Set<Integer> allunknown = new TreeSet<>();
+		while(!q.isEmpty()) {
+			int nexti = q.remove();
+			if(allunknown.contains(nexti))
+				continue;
+			allunknown.add(nexti);
+			for(Map.Entry<String, Pointer> newpt: heapObjects.get(nexti).getFields().entrySet()) {
+				q.addAll(newpt.getValue().getAll());
+			}
+		}
+		if(l.getAll().addAll(allunknown))
 			flag = true;
-		if(h.addAll(l))
+		if(h.getAll().addAll(allunknown))
 			flag = true;
+		
 		return flag;
 	}
 
@@ -465,13 +485,30 @@ public class Anderson {
 
 	public Set<Integer> getAllocIds(String method, String localname) {
 		Set<Integer> results = new TreeSet<>();
-		List<Integer> copyids = funccopys.get(method);
-		for (int cpyid : copyids) {
+
+		Set<Integer> heaps = new TreeSet<Integer>();
+		Queue<Integer> searchq = new ArrayDeque<>();
+		for (int cpyid : funccopys.get(method)) {
 			Pointer heapids = locals.get(localName(method, cpyid, localname));
-			for (int heapid : heapids.getAll()) {
-				results.add(heapObjects.get(heapid).allocid);
+			// for (int heapid : heapids.getAll()) {
+			// 	results.add(heapObjects.get(heapid).allocid);
+			// }
+			searchq.addAll(heapids.getAll());
+		}
+
+		while(!searchq.isEmpty()) {
+			int nexti = searchq.remove();
+			if(!heaps.add(nexti))
+				continue;
+			for(Map.Entry<String, Pointer> newpt: heapObjects.get(nexti).getFields().entrySet()) {
+				searchq.addAll(newpt.getValue().getAll());
 			}
 		}
+
+		for(int heapi: heaps) {
+			results.add(heapObjects.get(heapi).allocid);
+		}
+		
 		return results;
 	}
 

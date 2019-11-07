@@ -81,14 +81,13 @@ class Invocation {
 
 public class WholeProgramTransformer extends SceneTransformer {
 
-	boolean shouldanalysis(SootMethod sm) {
-		// if(sm.isJavaLibraryMethod())
-		// return false;
+ch	boolean shouldanalysis(SootMethod sm) {
 		SootClass sc = sm.getDeclaringClass();
-		String packagename = sc.getPackageName();
-		return (sc.getName().equals("java.lang.Object") || packagename.startsWith("benchmark")
-				|| packagename.startsWith("test"));
-		// || consider_methods.contains(getMethodName(sm));
+		String name = sc.getName();
+		if(name.equals("java.lang.Object"))
+			return true;
+		return !name.startsWith("java") && !name.startsWith("org")
+				&& !name.startsWith("jdk") && !name.startsWith("com") && !name.startsWith("sun");
 	}
 
 	public static String getMethodName(SootMethod sm) {
