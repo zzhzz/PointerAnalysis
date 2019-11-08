@@ -31,7 +31,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>com.mypointeranalysis.MyPointerAnalysis</mainClass>
+              <mainClass>core.MyPointerAnalysis</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>

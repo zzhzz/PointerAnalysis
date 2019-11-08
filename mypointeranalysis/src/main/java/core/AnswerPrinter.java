@@ -1,4 +1,4 @@
-package com.mypointeranalysis;
+package core;
 
 import java.io.File;
 import java.io.FileNotFoundException;
