@@ -7,7 +7,7 @@ import java.io.PrintStream;
 
 public class AnswerPrinter {
 	
-	static void printAnswer(String answer) {
+	public static void printAnswer(String answer) {
 		try {
 			PrintStream ps = new PrintStream(
 				new FileOutputStream(new File("result.txt")));

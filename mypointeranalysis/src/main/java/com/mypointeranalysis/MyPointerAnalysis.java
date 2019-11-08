@@ -4,27 +4,33 @@ import java.io.File;
 
 import soot.PackManager;
 import soot.Transform;
+import vasco.callgraph.CallGraphTransformer;
 
 public class MyPointerAnalysis {
 
 	public static String entryclass;
 	
-	// args[0] = "/root/workspace/code"
-	// args[1] = "test.Hello"	
 	public static void main(String[] args) {		
 		entryclass = args[1];
-		//String jdkLibPath = System.getProperty("java.home")+"/lib/"; // "/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/";
 		String classpath = args[0] 
 				+ File.pathSeparator + args[0] + File.separator + "rt.jar"
 				+ File.pathSeparator + args[0] + File.separator + "jce.jar";	
-		System.out.println(classpath);
-		PackManager.v().getPack("wjtp").add(new Transform("wjtp.mypta", new WholeProgramTransformer()));
-		soot.Main.main(new String[] {
-			"-w",
-			"-p", "cg.spark", "enabled:true",
-			"-p", "wjtp.mypta", "enabled:true",
-			"-soot-class-path", classpath,
-			args[1]				
-		});
+				String[] sootArgs = {
+					"-cp", classpath, // "-pp", 
+					"-w", // "-app", 
+					//"-keep-line-number",
+					// "-keep-bytecode-offset",
+					//"-p", "cg", "implicit-entry:false",
+					"-p", "cg.spark", "enabled",
+					// "-p", "cg.spark", "simulate-natives",
+					// "-p", "cg", "safe-forname",
+					// "-p", "cg", "safe-newinstance",
+					// "-main-class", entryclass,
+					// "-f", "none", 
+					entryclass 
+			};
+			CallGraphTransformer cgt = new CallGraphTransformer();
+			PackManager.v().getPack("wjtp").add(new Transform("wjtp.fcpa", cgt));
+			soot.Main.main(sootArgs);
 	}
 }
