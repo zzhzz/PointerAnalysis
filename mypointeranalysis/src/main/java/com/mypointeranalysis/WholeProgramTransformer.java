@@ -86,8 +86,13 @@ public class WholeProgramTransformer extends SceneTransformer {
 		String name = sc.getName();
 		if (name.equals("java.lang.Object"))
 			return true;
-		return !name.startsWith("java") && !name.startsWith("org") && !name.startsWith("jdk") && !name.startsWith("com")
-				&& !name.startsWith("sun");
+		if (name.equals(MyPointerAnalysis.entryclass))
+			return true;
+		if(sc.isJavaLibraryClass())
+			return false;
+		return true;
+		// return !name.startsWith("java") && !name.startsWith("org") && !name.startsWith("jdk") && !name.startsWith("com")
+		// 		&& !name.startsWith("sun");
 	}
 
 	public static String getMethodName(SootMethod sm) {
