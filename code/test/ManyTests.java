@@ -1,5 +1,7 @@
 package test;
 
+import java.util.ArrayList;
+
 import benchmark.internal.BenchmarkN;
 import benchmark.objects.A;
 import benchmark.objects.B;
@@ -12,7 +14,7 @@ public class ManyTests extends A {
     B f;
     B newb;
 
-    private static void test_01_overrideTest() {
+    private static void test_01_overrideTest(String[] args) {
         BenchmarkN.alloc(101);
         B b1 = new B();
         BenchmarkN.alloc(102);
@@ -21,11 +23,11 @@ public class ManyTests extends A {
         ManyTests mt = new ManyTests();
         mt.f = b1;
         ((A) mt).f = b2;
-        BenchMarkN.test(101, mt.f);
-        BenchMarkN.test(102, ((A) mt).f);
+        BenchmarkN.test(101, mt.f);
+        BenchmarkN.test(102, ((A) mt).f);
     }
 
-    private static void test_02_deliverTest() {
+    private static void test_02_deliverTest(String[] args) {
         BenchmarkN.alloc(201);
         ManyTests mt1 = new ManyTests();
         BenchmarkN.alloc(202);
@@ -33,10 +35,10 @@ public class ManyTests extends A {
         mt1.newb = b1;
         A a1 = mt1;
         ManyTests mt2 = (ManyTests) a1;
-        BenchmarkN.test(201, mt2.f);
+        BenchmarkN.test(201, mt2.newb);
     }
 
-    private static void test_03_arrayTest() {
+    private static void test_03_arrayTest(String[] args) {
         BenchmarkN.alloc(301);
         A[] arr1 = new A[3];
         BenchmarkN.alloc(302);
@@ -60,12 +62,12 @@ public class ManyTests extends A {
         return result;
     }
 
-    private static void test_04_castTest() {
+    private static void test_04_castTest(String[] args) {
         P curp = (P) test_04_genQ();
         BenchmarkN.test(401, curp);
     }
 
-    private static void test_05_exceptionTest() {
+    private static void test_05_exceptionTest(String[] args) {
         BenchmarkN.alloc(501);
         Exception ex = new Exception();
         Exception e0 = null;
@@ -77,7 +79,7 @@ public class ManyTests extends A {
         BenchmarkN.test(501, e0);
     }
 
-    private static void test_06_multiArrayTest() {
+    private static void test_06_multiArrayTest(String[] args) {
         BenchmarkN.alloc(601);
         A[][] multiarray = new A[3][5];
         BenchmarkN.alloc(602);
@@ -87,7 +89,7 @@ public class ManyTests extends A {
         BenchmarkN.test(601, a2);
     }
 
-    private static void test_07_recArrayTest() {
+    private static void test_07_recArrayTest(String[] args) {
         BenchmarkN.alloc(701);
         ManyTests r1 = new ManyTests();
         BenchmarkN.alloc(702);
@@ -100,7 +102,7 @@ public class ManyTests extends A {
 
     private static A test_08_getA(int i) {
         if (i > 0) {
-            return getA(i - 1);
+            return test_08_getA(i - 1);
         } else {
             BenchmarkN.alloc(803);
             A a = new A();
@@ -108,7 +110,7 @@ public class ManyTests extends A {
         }
     }
 
-    private static void test_08_recTest() {
+    private static void test_08_recTest(String[] args) {
         A a = test_08_getA(10);
         BenchmarkN.test(801, a);
     }
@@ -124,7 +126,7 @@ public class ManyTests extends A {
         return new ManyTests();
     }
 
-    private static void test_09_subCallTest() {
+    private static void test_09_subCallTest(String[] args) {
         A a = test_09_createA();
         BenchmarkN.alloc(901);
         B b1 = new B();
@@ -139,11 +141,12 @@ public class ManyTests extends A {
     }
 
     private static B test_10_id(B in) {
-        A result = new A(in);
+        A result = new A();
+        result.f = in;
         return result.f;
     }
 
-    private static void test_10_multiCopyTest() {
+    private static void test_10_multiCopyTest(String[] args) {
         BenchmarkN.alloc(1001);
         B b1 = new B();
         B b1_id = test_10_id(b1);
@@ -168,7 +171,7 @@ public class ManyTests extends A {
         BenchmarkN.test(1001, b1_id);
     }
 
-    private static void test_11_unknownTest() {
+    private static void test_11_unknownTest(String[] args) {
         BenchmarkN.alloc(1101);
         A a = new A();
         BenchmarkN.alloc(1102);
@@ -182,7 +185,6 @@ public class ManyTests extends A {
         System.out.println("Hello World!\n");
         ArrayList<Object> aobj = new ArrayList<>();
         aobj.add(a);
-        aobj.add(b);
         A t = (A) aobj.get(1);
         A t2 = (A) aobj.get(1);
         BenchmarkN.alloc(1104);
@@ -194,16 +196,16 @@ public class ManyTests extends A {
     }
 
     public static void main(String[] args) {
-        test_01_overrideTest();
-        test_02_deliverTest();
-        test_03_arrayTest();
-        test_04_castTest();
-        test_05_exceptionTest();
-        test_06_multiArrayTest();
-        test_07_recArrayTest();
-        test_08_recTest();
-        test_09_subCallTest();
-        test_10_multiCopyTest();
-        test_11_unknownTest();
+        test_01_overrideTest(args);
+        test_02_deliverTest(args);
+        test_03_arrayTest(args);
+        test_04_castTest(args);
+        test_05_exceptionTest(args);
+        test_06_multiArrayTest(args);
+        test_07_recArrayTest(args);
+        test_08_recTest(args);
+        test_09_subCallTest(args);
+        test_10_multiCopyTest(args);
+        test_11_unknownTest(args);
     }
 }
