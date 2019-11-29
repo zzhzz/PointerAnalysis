@@ -489,6 +489,8 @@ public class WholeProgramTransformer extends SceneTransformer {
 				if (i != -1) {
 					builder.append(" ");
 					builder.append(Integer.toString(i));
+				} else {
+					builder.append(" 0");
 				}
 			}
 			builder.append("\n");
