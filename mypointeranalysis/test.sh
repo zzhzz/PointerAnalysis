@@ -9,11 +9,12 @@ if [ "$TEST_CASE"x == x ]; then
 fi
 
 mvn compile
-mvn dependency:copy-dependencies
-mvn -Dclassifier=sources dependency:copy-dependencies
+# mvn dependency:copy-dependencies
+# mvn -Dclassifier=sources dependency:copy-dependencies
 
-CLASSPATH=$(JARS=(target/dependency/*.jar); IFS=:; echo "${JARS[*]}"):target/classes
+CLASSPATH=$(JARS=(target/dependency/*.jar); IFS=:; echo "${JARS[*]}"):target/classes/
 
 echo 'Start Test'
 echo '---------------------------------'
-java -cp $CLASSPATH com.mypointeranalysis.MyPointerAnalysis ../code $TEST_CASE
+java -cp $CLASSPATH com.mypointeranalysis.MyPointerAnalysis ../code $TEST_CASE > run.txt
+# java -cp $CLASSPATH soot.Main -soot-classpath ../code:../code/jce.jar:../code/rt.jar -f jimple $TEST_CASE

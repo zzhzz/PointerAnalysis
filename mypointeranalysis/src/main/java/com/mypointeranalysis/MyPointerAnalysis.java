@@ -6,10 +6,13 @@ import soot.PackManager;
 import soot.Transform;
 
 public class MyPointerAnalysis {
+
+	public static String entryclass;
 	
 	// args[0] = "/root/workspace/code"
 	// args[1] = "test.Hello"	
 	public static void main(String[] args) {		
+		entryclass = args[1];
 		//String jdkLibPath = System.getProperty("java.home")+"/lib/"; // "/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/";
 		String classpath = args[0] 
 				+ File.pathSeparator + args[0] + File.separator + "rt.jar"

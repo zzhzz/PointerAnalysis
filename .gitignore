@@ -5,4 +5,7 @@
 /mypointeranalysis/.classpath
 /mypointeranalysis/.project
 /mypointeranalysis/result.txt
+/mypointeranalysis/result.*.txt
+/mypointeranalysis/run.*.txt
 /mypointeranalysis/sootOutput/
+/mypointeranalysis/run.txt

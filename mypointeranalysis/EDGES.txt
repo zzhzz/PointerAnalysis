@@ -1,0 +1,28 @@
+静态函数
+FINALIZE 19
+THREAD 3
+CLINIT 31577
+EntryPoints
+
+动态调用函数
+PRIVILEGED 187
+VIRTUAL 49106
+STATIC 6479
+SPECIAL 10937
+INTERFACE 8659
+
+
+NopStmt
+DefinitionStmt IdentityStmt,AssignStmt
+IfStmt
+GotoStmt
+TableSwitchStmt
+LookupSwitchStmt
+InvokeStmt
+
+ReturnStmt
+ReturnVoidStmt
+
+ThrowStmt
+
+MonitorStmt EnterMonitorStmt ExitMonitorStmt
