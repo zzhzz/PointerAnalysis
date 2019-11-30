@@ -22,7 +22,8 @@ public class ManyTests extends A {
         BenchmarkN.alloc(103);
         ManyTests mt = new ManyTests();
         mt.f = b1;
-        ((A) mt).f = b2;
+        if(args.length > 1)
+            ((A) mt).f = b2;
         BenchmarkN.test(101, mt.f);
         BenchmarkN.test(102, ((A) mt).f);
     }
@@ -39,6 +40,7 @@ public class ManyTests extends A {
     }
 
     private static void test_03_arrayTest(String[] args) {
+        B bx = new B();
         BenchmarkN.alloc(301);
         A[] arr1 = new A[3];
         BenchmarkN.alloc(302);
@@ -48,6 +50,8 @@ public class ManyTests extends A {
         BenchmarkN.alloc(304);
         A a1 = new A(b1);
         arr1[0] = a1;
+        if(args.length > 1)
+            a1.f = bx;
         BenchmarkN.alloc(305);
         A a2 = new A();
         arr2[2] = a2;
@@ -84,7 +88,7 @@ public class ManyTests extends A {
         A[][] multiarray = new A[3][5];
         BenchmarkN.alloc(602);
         A a = new A();
-        multiarray[2][3] = a;
+        multiarray[1][4] = a;
         A a2 = multiarray[1][4];
         BenchmarkN.test(601, a2);
     }
@@ -140,38 +144,41 @@ public class ManyTests extends A {
         BenchmarkN.test(901, b3);
     }
 
-    private static B test_10_id(B in) {
+    private static B test_10_id(B in, int x) {
         A result = new A();
-        result.f = in;
+        if(x > 3)
+            result.f = in;
         return result.f;
     }
 
     private static void test_10_multiCopyTest(String[] args) {
         BenchmarkN.alloc(1001);
         B b1 = new B();
-        B b1_id = test_10_id(b1);
+        B b1_id = test_10_id(b1, args.length);
         BenchmarkN.alloc(1002);
         B b2 = new B();
-        B b2_id = test_10_id(b2);
+        B b2_id = test_10_id(b2, args.length);
         BenchmarkN.alloc(1003);
         B b3 = new B();
-        B b3_id = test_10_id(b3);
+        B b3_id = test_10_id(b3, args.length);
         BenchmarkN.alloc(1004);
         B b4 = new B();
-        B b4_id = test_10_id(b4);
+        B b4_id = test_10_id(b4, args.length);
         BenchmarkN.alloc(1005);
         B b5 = new B();
-        B b5_id = test_10_id(b5);
+        B b5_id = test_10_id(b5, args.length);
         BenchmarkN.alloc(1006);
         B b6 = new B();
-        B b6_id = test_10_id(b6);
+        B b6_id = test_10_id(b6, args.length);
         BenchmarkN.alloc(1007);
         B b7 = new B();
-        B b7_id = test_10_id(b7);
+        B b7_id = test_10_id(b7, args.length);
         BenchmarkN.test(1001, b1_id);
     }
 
     private static void test_11_unknownTest(String[] args) {
+        A ax = new A();
+        B bx = new B();
         BenchmarkN.alloc(1101);
         A a = new A();
         BenchmarkN.alloc(1102);
@@ -185,13 +192,18 @@ public class ManyTests extends A {
         System.out.println("Hello World!\n");
         ArrayList<Object> aobj = new ArrayList<>();
         aobj.add(a);
+        aobj.add(a);
         A t = (A) aobj.get(1);
+        if(args.length > 1)
+            t = ax;
         A t2 = (A) aobj.get(1);
         BenchmarkN.alloc(1104);
         B newb = new B();
         t.f = newb;
         BenchmarkN.test(1103, t);
         B testb = t2.f;
+        if(args.length > 1)
+            testb = bx;
         BenchmarkN.test(1104, testb);
     }
 
