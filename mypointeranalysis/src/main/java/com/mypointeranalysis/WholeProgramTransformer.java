@@ -260,7 +260,7 @@ public class WholeProgramTransformer extends SceneTransformer {
 
 		process_class(sm.getDeclaringClass());
 
-		System.out.println("Process: " + sm_name);
+		// System.out.println("Process: " + sm_name);
 
 		if (!sm.hasActiveBody())
 			return;
