@@ -9,8 +9,8 @@ import benchmark.objects.I;
 import benchmark.objects.P;
 import benchmark.objects.Q;
 
-public class ManyTests extends A {
-    ManyTests r;
+public class mytest1901111306 extends A {
+    mytest1901111306 r;
     B f;
     B newb;
 
@@ -20,7 +20,7 @@ public class ManyTests extends A {
         BenchmarkN.alloc(102);
         B b2 = new B();
         BenchmarkN.alloc(103);
-        ManyTests mt = new ManyTests();
+        mytest1901111306 mt = new mytest1901111306();
         mt.f = b1;
         if(args.length > 1)
             ((A) mt).f = b2;
@@ -30,12 +30,12 @@ public class ManyTests extends A {
 
     private static void test_02_deliverTest(String[] args) {
         BenchmarkN.alloc(201);
-        ManyTests mt1 = new ManyTests();
+        mytest1901111306 mt1 = new mytest1901111306();
         BenchmarkN.alloc(202);
         B b1 = new B();
         mt1.newb = b1;
         A a1 = mt1;
-        ManyTests mt2 = (ManyTests) a1;
+        mytest1901111306 mt2 = (mytest1901111306) a1;
         BenchmarkN.test(201, mt2.newb);
     }
 
@@ -95,12 +95,12 @@ public class ManyTests extends A {
 
     private static void test_07_recArrayTest(String[] args) {
         BenchmarkN.alloc(701);
-        ManyTests r1 = new ManyTests();
+        mytest1901111306 r1 = new mytest1901111306();
         BenchmarkN.alloc(702);
-        ManyTests r2 = new ManyTests();
+        mytest1901111306 r2 = new mytest1901111306();
         r1.r = r2;
         r2.r = r1;
-        ManyTests r = r1.r.r.r.r.r.r.r.r.r;
+        mytest1901111306 r = r1.r.r.r.r.r.r.r.r.r;
         BenchmarkN.test(701, r);
     }
 
@@ -127,7 +127,7 @@ public class ManyTests extends A {
     }
 
     private static A test_09_createA() {
-        return new ManyTests();
+        return new mytest1901111306();
     }
 
     private static void test_09_subCallTest(String[] args) {
@@ -138,7 +138,7 @@ public class ManyTests extends A {
         BenchmarkN.test(902, b2);
         A a2 = new A();
         if (args.length > 100) {
-            a2 = new ManyTests();
+            a2 = new mytest1901111306();
         }
         B b3 = a2.id(b1);
         BenchmarkN.test(901, b3);
